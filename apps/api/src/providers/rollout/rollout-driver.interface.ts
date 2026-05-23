@@ -1,15 +1,24 @@
 import type { RolloutStatus } from '@prisma/client';
 
+export type FailureScenario =
+  | 'none'                  // deterministic success
+  | 'OOMKilled'             // container exceeded memory limit
+  | 'ImagePullBackOff'      // image tag not found in registry
+  | 'ReadinessProbeTimeout' // health check never passed
+  | 'CrashLoopBackOff';     // container keeps restarting
+
 export interface RolloutPlan {
   rolloutId: string;
   deploymentId: string;
   serviceVersionId: string;
   imageTag: string;
+  failureScenario: FailureScenario;
 }
 
 export interface RolloutObservation {
   rolloutId: string;
   status: RolloutStatus;
+  phase?: string;
   message?: string;
   failureReason?: string;
 }

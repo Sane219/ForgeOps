@@ -1,18 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { RolloutStatus } from '@prisma/client';
 import type {
+  FailureScenario,
   RolloutDriver,
   RolloutObservation,
   RolloutPlan,
 } from './rollout-driver.interface';
 
 /**
- * Day-4 deliverable: enqueues a BullMQ job that drives a realistic rollout
- * state machine (PENDING → IN_PROGRESS → SUCCEEDED|FAILED) with timed
- * transitions and ~10–15% mocked failures with K8s-style reasons:
- *   ImagePullBackOff, OOMKilled, readiness-probe-timeout, CrashLoopBackOff.
+ * Deterministic mock rollout driver.
  *
- * Day-1 skeleton: returns PENDING immediately and logs the request.
+ * start() returns IN_PROGRESS immediately — the actual state machine
+ * progression (pulling_image → starting_container → health_check → ready)
+ * is driven by the BullMQ RolloutProcessor.
+ *
+ * This driver simply validates the plan and returns the initial observation.
+ * A real KubernetesRolloutDriver would call the K8s API here.
  */
 @Injectable()
 export class MockRolloutDriver implements RolloutDriver {
@@ -20,17 +23,31 @@ export class MockRolloutDriver implements RolloutDriver {
 
   async start(plan: RolloutPlan): Promise<RolloutObservation> {
     this.logger.log(
-      `[mock] start rolloutId=${plan.rolloutId} version=${plan.serviceVersionId} image=${plan.imageTag}`,
+      `[mock] start rolloutId=${plan.rolloutId} image=${plan.imageTag} scenario=${plan.failureScenario}`,
     );
-    return { rolloutId: plan.rolloutId, status: RolloutStatus.PENDING };
+    return {
+      rolloutId: plan.rolloutId,
+      status: RolloutStatus.IN_PROGRESS,
+      phase: 'pulling_image',
+      message: `Pulling image ${plan.imageTag}`,
+    };
   }
 
   async rollback(rolloutId: string): Promise<RolloutObservation> {
     this.logger.log(`[mock] rollback rolloutId=${rolloutId}`);
-    return { rolloutId, status: RolloutStatus.ROLLED_BACK };
+    return {
+      rolloutId,
+      status: RolloutStatus.IN_PROGRESS,
+      phase: 'rolling_back',
+      message: 'Initiating rollback to previous stable version',
+    };
   }
 
   async observe(rolloutId: string): Promise<RolloutObservation> {
-    return { rolloutId, status: RolloutStatus.PENDING };
+    // In mock mode, observation is handled by the BullMQ worker directly
+    return {
+      rolloutId,
+      status: RolloutStatus.IN_PROGRESS,
+    };
   }
 }

@@ -1,12 +1,21 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
+import { QueuesController } from './queues.controller';
+import { QueuesService } from './queues.service';
+import { RolloutProcessor } from './processors/rollout.processor';
 
-/**
- * Day-4 deliverable. BullMQ setup + workers:
- *   - RolloutWorker  — drives the mock rollout state machine
- *   - ScanWorker     — produces SecurityReports for completed rollouts
- *   - AiWorker       — pre-warms deterministic analyses on rollout failure
- *
- * Bull Board mounted at /queues in dev only.
- */
-@Module({})
-export class QueuesModule {}
+@Module({
+  controllers: [QueuesController],
+  providers: [QueuesService, RolloutProcessor],
+  exports: [QueuesService],
+})
+export class QueuesModule implements OnModuleInit {
+  private readonly logger = new Logger(QueuesModule.name);
+
+  constructor(private readonly rolloutProcessor: RolloutProcessor) {}
+
+  onModuleInit() {
+    this.rolloutProcessor.start();
+    this.logger.log('BullMQ workers started');
+  }
+}

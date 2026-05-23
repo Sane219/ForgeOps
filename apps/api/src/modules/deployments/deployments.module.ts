@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
+import { DeploymentsController } from './deployments.controller';
+import { DeploymentsService } from './deployments.service';
+import { QueuesModule } from '../queues/queues.module';
 
-/**
- * Day-4 deliverable. Deployment + Rollout state machine. `triggerRollout()`
- * resolves the target ServiceVersion's artifacts, calls the configured
- * [[rollout-driver]] (mock by default), and reflects status transitions
- * back into the Deployment + Rollout rows.
- */
-@Module({})
+@Module({
+  imports: [QueuesModule],
+  controllers: [DeploymentsController],
+  providers: [DeploymentsService],
+  exports: [DeploymentsService],
+})
 export class DeploymentsModule {}
