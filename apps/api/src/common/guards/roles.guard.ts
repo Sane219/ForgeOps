@@ -1,24 +1,26 @@
-import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
+import { type CanActivate, type ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Role } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import type { ForgeOpsRequest } from '../types/request';
 
-/**
- * Reads `@Roles(...)` metadata from the handler and asserts that the
- * caller's workspace role is in the allowed set. Pairs with [[WorkspaceGuard]]
- * which is responsible for populating `req.workspace.role`.
- */
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
-  canActivate(_context: ExecutionContext): boolean {
+  canActivate(context: ExecutionContext): boolean {
     const required = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
-      _context.getHandler(),
-      _context.getClass(),
+      context.getHandler(),
+      context.getClass(),
     ]);
     if (!required || required.length === 0) return true;
-    // TODO(day-2): compare against req.workspace.role once WorkspaceGuard populates it
+
+    const req = context.switchToHttp().getRequest<ForgeOpsRequest>();
+    if (!req.workspace?.role) return true; // WorkspaceGuard handles missing workspace
+
+    if (!required.includes(req.workspace.role)) {
+      throw new ForbiddenException(`Requires role: ${required.join(' or ')}`);
+    }
     return true;
   }
 }

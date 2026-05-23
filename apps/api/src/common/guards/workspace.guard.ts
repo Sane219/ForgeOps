@@ -1,14 +1,38 @@
-import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
+import { type CanActivate, type ExecutionContext, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import type { ForgeOpsRequest } from '../types/request';
 
-/**
- * Day-2 deliverable. Resolves the active workspace from `x-workspace-slug`
- * (or path param), validates the current user's membership, and populates
- * `req.workspace = { id, slug, role }`.
- */
 @Injectable()
 export class WorkspaceGuard implements CanActivate {
-  canActivate(_context: ExecutionContext): boolean {
-    // TODO(day-2): resolve workspace + membership, attach to req
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const req = context.switchToHttp().getRequest<ForgeOpsRequest>();
+    if (!req.user) return true; // JwtAuthGuard runs first; if user missing, let JwtAuthGuard fail
+
+    // Try header first, then query param
+    const slug =
+      (req.headers['x-workspace-slug'] as string | undefined) ??
+      (req.query.workspace as string | undefined);
+
+    // Workspace slug is optional — some endpoints (e.g. GET /workspaces) don't need it
+    if (!slug) return true;
+
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { slug },
+      select: { id: true, slug: true },
+    });
+    if (!workspace) throw new NotFoundException(`Workspace "${slug}" not found`);
+
+    const membership = await this.prisma.membership.findUnique({
+      where: {
+        userId_workspaceId: { userId: req.user.id, workspaceId: workspace.id },
+      },
+      select: { role: true },
+    });
+    if (!membership) throw new ForbiddenException('Not a member of this workspace');
+
+    req.workspace = { id: workspace.id, slug: workspace.slug, role: membership.role };
     return true;
   }
 }

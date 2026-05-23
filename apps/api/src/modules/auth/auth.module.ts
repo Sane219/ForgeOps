@@ -1,9 +1,17 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { JwtStrategy } from './jwt.strategy';
 
-/**
- * Day-2 deliverable. Implements register/login/refresh/logout against
- * JWT (access + refresh tokens in httpOnly cookies), bcrypt password
- * hashing, and a Passport JWT strategy.
- */
-@Module({})
+@Module({
+  imports: [
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.register({}),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService],
+})
 export class AuthModule {}

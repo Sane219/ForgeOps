@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
+import { WorkspacesController } from './workspaces.controller';
+import { WorkspacesService } from './workspaces.service';
 
-/**
- * Day-2 deliverable. Workspace CRUD + membership management.
- *
- * On workspace creation, auto-seeds the three platform-managed environments
- * (DEV / STAGING / PROD with PROD.protected = true).
- */
-@Module({})
+@Module({
+  controllers: [WorkspacesController],
+  providers: [WorkspacesService],
+  exports: [WorkspacesService],
+})
 export class WorkspacesModule {}

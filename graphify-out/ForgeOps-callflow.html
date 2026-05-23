@@ -1,0 +1,3313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForgeOps — Complete Call Flow &amp; Architecture Documentation</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg: #0f172a; --surface: #1e293b; --border: #334155;
+  --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+  --warn: #fbbf24; --err: #f87171; --ok: #34d399;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+.container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+h1 { font-size: 2.4rem; margin-bottom: 8px; background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+h2 { font-size: 1.7rem; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); }
+h3 { font-size: 1.25rem; margin: 32px 0 12px; color: var(--accent); }
+h4 { font-size: 1.05rem; margin: 20px 0 8px; color: var(--warn); }
+p { margin: 8px 0; color: var(--muted); }
+.subtitle { color: var(--muted); font-size: 1.1rem; margin-bottom: 32px; }
+.mermaid { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin: 20px 0; overflow-x: auto; position: relative; }
+.mermaid.is-enhanced { padding: 0; overflow: hidden; min-height: 260px; }
+.mermaid-viewport { padding: 54px 24px 24px; overflow: hidden; cursor: grab; touch-action: none; min-height: 260px; }
+.mermaid-viewport.is-dragging { cursor: grabbing; }
+.mermaid-viewport svg { max-width: none !important; height: auto; transform-origin: 0 0; transition: transform 120ms ease; }
+.mermaid-toolbar { position: absolute; top: 10px; right: 10px; z-index: 3; display: flex; align-items: center; gap: 6px; padding: 6px; background: rgba(15,23,42,0.92); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.28); }
+.mermaid-toolbar button, .mermaid-toolbar .zoom-level { height: 28px; min-width: 32px; border: 1px solid var(--border); border-radius: 6px; background: #1e293b; color: var(--text); font: 600 0.78rem system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; }
+.mermaid-toolbar button { cursor: pointer; }
+.mermaid-toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+.mermaid-toolbar .zoom-level { min-width: 52px; color: var(--muted); background: transparent; }
+.call-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.92rem; }
+.call-table th { background: #1a2744; color: var(--accent); text-align: left; padding: 10px 14px; border: 1px solid var(--border); }
+.call-table td { padding: 8px 14px; border: 1px solid var(--border); vertical-align: top; }
+.call-table tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+.tag-async { background: #7c3aed33; color: #a78bfa; }
+.tag-class { background: #05966933; color: var(--ok); }
+.tag-func { background: #2563eb33; color: var(--accent); }
+.tag-cmd { background: #d9770633; color: var(--warn); }
+.tag-endpoint { background: #dc262633; color: var(--err); }
+.tag-hook { background: #db277733; color: #f472b6; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 16px 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin: 16px 0; }
+.arrow-chain { font-family: 'Fira Code', monospace; font-size: 0.85rem; color: var(--accent); padding: 10px; background: rgba(56,189,248,0.06); border-radius: 6px; }
+code { font-family: 'Fira Code', 'Cascadia Code', monospace; background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 3px; font-size: 0.88em; }
+ul, ol { margin: 8px 0 8px 24px; color: var(--muted); }
+li { margin: 4px 0; }
+a { color: var(--accent); }
+hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+.nav { position: sticky; top: 0; background: var(--bg); z-index: 10; padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.9rem; }
+.nav a { text-decoration: none; }
+.nav a:hover { text-decoration: underline; }
+@media (max-width: 768px) { .container { padding: 16px; } h1 { font-size: 1.8rem; } }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>ForgeOps — Complete Call Flow &amp; Architecture Documentation</h1>
+<p class="subtitle">Generated from graphify knowledge graph: 852 nodes, 1015 edges, 77 communities. Commit: 022255e</p>
+
+<div class="nav">
+    <a href="#overview">Architecture Overview</a>
+    <a href="#build-graph">Graph Build</a>
+    <a href="#cli-skills">CLI &amp; Skill Installers</a>
+    <a href="#serve-api">Serving API</a>
+    <a href="#security-global">Security &amp; Global Graph</a>
+    <a href="#shared-zod-schemas">Shared Zod Schemas</a>
+    <a href="#ai-types">AI Types</a>
+    <a href="#observability-types">Observability Types</a>
+    <a href="#community-67">Community 67</a>
+    <a href="#deployment-types">Deployment Types</a>
+    <a href="#auth-types">Auth Types</a>
+    <a href="#workspace-types">Workspace Types</a>
+    <a href="#cost-types">Cost Types</a>
+    <a href="#template-registry">Template Registry</a>
+    <a href="#artifact-types">Artifact Types</a>
+    <a href="#other">Other</a>
+</div>
+
+<!-- ====== Architecture Overview ====== -->
+<h2 id="overview">1. Architecture Overview</h2>
+
+<div class="mermaid">
+
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    BUILD_GRAPH_321CBB04("Graph Build<br/><small>400 nodes</small>")
+    class BUILD_GRAPH_321CBB04 module;
+    CLI_SKILLS_9964CBB8("CLI &amp; Skill Installers<br/><small>2 nodes</small>")
+    class CLI_SKILLS_9964CBB8 module;
+    SERVE_API_35EC8E86("Serving API<br/><small>298 nodes</small>")
+    class SERVE_API_35EC8E86 module;
+    SECURITY_GLOBAL_5B9C6A04("Security &amp; Global Graph<br/><small>26 nodes</small>")
+    class SECURITY_GLOBAL_5B9C6A04 module;
+    SHARED_ZOD_SCHEMAS_FF3E7E66("Shared Zod Schemas<br/><small>17 nodes</small>")
+    class SHARED_ZOD_SCHEMAS_FF3E7E66 module;
+    AI_TYPES_4731CAA1("AI Types<br/><small>12 nodes</small>")
+    class AI_TYPES_4731CAA1 module;
+    OBSERVABILITY_TYPES_876DB6C9("Observability Types<br/><small>12 nodes</small>")
+    class OBSERVABILITY_TYPES_876DB6C9 module;
+    COMMUNITY_67_317A77F8("Community 67<br/><small>12 nodes</small>")
+    class COMMUNITY_67_317A77F8 module;
+    DEPLOYMENT_TYPES_0817D594("Deployment Types<br/><small>10 nodes</small>")
+    class DEPLOYMENT_TYPES_0817D594 module;
+    AUTH_TYPES_CAD77467("Auth Types<br/><small>8 nodes</small>")
+    class AUTH_TYPES_CAD77467 module;
+    WORKSPACE_TYPES_8DDE0392("Workspace Types<br/><small>8 nodes</small>")
+    class WORKSPACE_TYPES_8DDE0392 module;
+    COST_TYPES_629249CA("Cost Types<br/><small>7 nodes</small>")
+    class COST_TYPES_629249CA module;
+    TEMPLATE_REGISTRY_3BE04C0A("Template Registry<br/><small>6 nodes</small>")
+    class TEMPLATE_REGISTRY_3BE04C0A module;
+    ARTIFACT_TYPES_927F1B51("Artifact Types<br/><small>6 nodes</small>")
+    class ARTIFACT_TYPES_927F1B51 module;
+    OTHER_D0941E68("Other<br/><small>28 nodes</small>")
+    class OTHER_D0941E68 module;
+    OTHER_D0941E68 -->|re exports x3| SECURITY_GLOBAL_5B9C6A04
+    SERVE_API_35EC8E86 -->|imports x2| BUILD_GRAPH_321CBB04
+    SERVE_API_35EC8E86 -->|imports x2| SECURITY_GLOBAL_5B9C6A04
+    WORKSPACE_TYPES_8DDE0392 -->|imports x2| SHARED_ZOD_SCHEMAS_FF3E7E66
+    OBSERVABILITY_TYPES_876DB6C9 -->|imports x2| SECURITY_GLOBAL_5B9C6A04
+    SECURITY_GLOBAL_5B9C6A04 -->|contains x2| DEPLOYMENT_TYPES_0817D594
+    BUILD_GRAPH_321CBB04 -->|contains| SERVE_API_35EC8E86
+    DEPLOYMENT_TYPES_0817D594 -->|imports| SECURITY_GLOBAL_5B9C6A04
+    DEPLOYMENT_TYPES_0817D594 -->|imports| COST_TYPES_629249CA
+    DEPLOYMENT_TYPES_0817D594 -->|re exports| OTHER_D0941E68
+    WORKSPACE_TYPES_8DDE0392 -->|imports| SECURITY_GLOBAL_5B9C6A04
+    WORKSPACE_TYPES_8DDE0392 -->|re exports| OTHER_D0941E68
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h4>Architecture Layers</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>Layer</th><th>Nodes</th><th>Communities</th></tr>
+      <tr><td>Graph Build</td><td>400</td><td><code>1, 2, 3, 5, 7, 8, 10, 11, 12, 13, 15, 17, 20, 23, 24, 29, 32, 36, 37, 43, 44, 45, 72, 48, 51, 52</code></td></tr><tr><td>CLI &amp; Skill Installers</td><td>2</td><td><code>76</code></td></tr><tr><td>Serving API</td><td>298</td><td><code>64, 4, 6, 9, 0, 35, 65, 14, 66, 18, 19, 21, 27, 68, 69, 40, 70, 71, 47, 39, 49, 50, 73, 74</code></td></tr><tr><td>Security &amp; Global Graph</td><td>26</td><td><code>31, 22</code></td></tr><tr><td>Shared Zod Schemas</td><td>17</td><td><code>16</code></td></tr><tr><td>AI Types</td><td>12</td><td><code>25</code></td></tr><tr><td>Observability Types</td><td>12</td><td><code>26</code></td></tr><tr><td>Community 67</td><td>12</td><td><code>67</code></td></tr><tr><td>Deployment Types</td><td>10</td><td><code>28</code></td></tr><tr><td>Auth Types</td><td>8</td><td><code>33</code></td></tr><tr><td>Workspace Types</td><td>8</td><td><code>34</code></td></tr><tr><td>Cost Types</td><td>7</td><td><code>38</code></td></tr><tr><td>Template Registry</td><td>6</td><td><code>41</code></td></tr><tr><td>Artifact Types</td><td>6</td><td><code>42</code></td></tr><tr><td>Other</td><td>28</td><td><code>30, 46, 53, 75, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63</code></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Core Flow</h4>
+    <div class="arrow-chain">CLI &amp; Skill Installers -&gt; Graph Build -&gt; Serving API -&gt; Security &amp; Global Graph -&gt; Deployment Types -&gt; Other -&gt; Template Registry</div>
+  </div>
+</div>
+<div class="grid">
+  <div class="card">
+    <h4>Graph Report Highlights</h4>
+    <ul>
+      <li>852 nodes · 1015 edges · 77 communities (56 shown, 21 thin omitted)</li>
+      <li>Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 9 edges (avg confidence: 0.87)</li>
+      <li>Token cost: 0 input · 0 output</li>
+      <li>1. `compilerOptions` - 19 edges</li>
+      <li>2. `compilerOptions` - 19 edges</li>
+      <li>3. `scripts` - 17 edges</li>
+    </ul>
+  </div>
+</div>
+<hr>
+<!-- ====== 2. Graph Build ====== -->
+<h2 id="build-graph">2. Graph Build</h2>
+<p>Graph Build groups implementation around packagejson, packages, apps, web, mostly in apps/web/package.json, apps/api/package.json, package.json. This section covers 400 nodes and 378 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Graph Build (400 nodes, 378 edges)
+    subgraph build_graph_claude_settings_json_ecd3fce2[".claude/settings.json"]
+        claude_settings_hooks_pretooluse_8b32d47a("PreToolUse<br/><small>.claude/settings.json</small>")
+        claude_settings_hooks_0f8e3873("hooks<br/><small>.claude/settings.json</small>")
+        claude_settings_json_88095d2b("settings.json")
+    end
+    subgraph build_graph_openclaude_settings_local_json_57eda9bb[".openclaude/settings.local.json"]
+        openclaude_settings_local_permissions_allow_d60c0dfc("allow<br/><small>.openclaude/settings.local.json</small>")
+        openclaude_settings_local_permissions_f537c12f("permissions<br/><small>.openclaude/settings.local.json</small>")
+        openclaude_settings_local_json_cb6e210d("settings.local.json")
+    end
+    subgraph build_graph_apps_api_nest_cli_json_d6bc60e1["apps/api/nest-cli.json"]
+        api_nest_cli_schema_8135fbb1("$schema<br/><small>apps/api/nest-cli.json</small>")
+        api_nest_cli_compileroptions_assets_342eee04("assets<br/><small>apps/api/nest-cli.json</small>")
+        api_nest_cli_collection_61894ea3("collection<br/><small>apps/api/nest-cli.json</small>")
+    end
+    apps_api_eslint_config_mjs_1bd4e3df("eslint.config.mjs")
+    apps_web_eslint_config_mjs_22fc7724("eslint.config.mjs")
+    eslint_config_mjs_5834d137("eslint.config.mjs")
+    packages_config_eslint_base_mjs_70187642("base.mjs")
+    packages_config_eslint_nextjs_mjs_3a40c7c8("nextjs.mjs")
+    packages_config_eslint_node_mjs_6fa50360("node.mjs")
+    packages_templates_eslint_config_mjs_ae13784b("eslint.config.mjs")
+    packages_types_eslint_config_mjs_b1dbefbc("eslint.config.mjs")
+    packages_ui_eslint_config_mjs_f32cd397("eslint.config.mjs")
+    eslint_config_mjs_5834d137 -->|imports| packages_config_eslint_base_mjs_70187642
+    apps_web_eslint_config_mjs_22fc7724 -->|imports| packages_config_eslint_nextjs_mjs_3a40c7c8
+    apps_api_eslint_config_mjs_1bd4e3df -->|imports| packages_config_eslint_node_mjs_6fa50360
+    packages_types_eslint_config_mjs_b1dbefbc -->|imports| packages_config_eslint_base_mjs_70187642
+    packages_config_eslint_base_mjs_70187642 -->|imports| packages_config_eslint_nextjs_mjs_3a40c7c8
+    packages_config_eslint_base_mjs_70187642 -->|imports| packages_config_eslint_node_mjs_6fa50360
+    packages_config_eslint_base_mjs_70187642 -->|imports| packages_templates_eslint_config_mjs_ae13784b
+    packages_config_eslint_nextjs_mjs_3a40c7c8 -->|imports| packages_ui_eslint_config_mjs_f32cd397
+    %% Omitted for readability: 382 nodes, 0 edges
+    class claude_settings_hooks_pretooluse_8b32d47a klass;
+    class claude_settings_hooks_0f8e3873 ui;
+    class claude_settings_json_88095d2b function;
+    class openclaude_settings_local_permissions_allow_d60c0dfc function;
+    class openclaude_settings_local_permissions_f537c12f function;
+    class openclaude_settings_local_json_cb6e210d function;
+    class api_nest_cli_schema_8135fbb1 function;
+    class api_nest_cli_compileroptions_assets_342eee04 async;
+    class api_nest_cli_collection_61894ea3 function;
+    class apps_api_eslint_config_mjs_1bd4e3df function;
+    class apps_web_eslint_config_mjs_22fc7724 function;
+    class eslint_config_mjs_5834d137 function;
+    class packages_config_eslint_base_mjs_70187642 function;
+    class packages_config_eslint_nextjs_mjs_3a40c7c8 function;
+    class packages_config_eslint_node_mjs_6fa50360 function;
+    class packages_templates_eslint_config_mjs_ae13784b function;
+    class packages_types_eslint_config_mjs_b1dbefbc function;
+    class packages_ui_eslint_config_mjs_f32cd397 function;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>package.json</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>package.json node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>name</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>name node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>version</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>version node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>private</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>private node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>scripts</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>scripts node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>build</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>build node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>dev</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>dev node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>start</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>start node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>lint</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>lint node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>lint:fix</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>lint:fix node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>typecheck</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>typecheck node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>test</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Verifies imports, entry points, or version behavior.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>test:watch</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Verifies imports, entry points, or version behavior.</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>prisma:generate</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>prisma:generate node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>prisma:migrate</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>prisma:migrate node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>prisma:deploy</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>prisma:deploy node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>prisma:studio</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>prisma:studio node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>prisma:seed</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>prisma:seed node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>clean</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>clean node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>20</td>
+  <td><code>prisma</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>prisma node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>21</td>
+  <td><code>seed</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>seed node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>22</td>
+  <td><code>devDependencies</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>devDependencies node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>23</td>
+  <td><code>@forgeops/config-eslint</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Reads, resolves, or persists project configuration.</td>
+</tr>
+<tr>
+  <td>24</td>
+  <td><code>@forgeops/config-typescript</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Reads, resolves, or persists project configuration.</td>
+</tr>
+<tr>
+  <td>25</td>
+  <td><code>@nestjs/cli</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-cmd">Entry</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>@nestjs/cli node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>26</td>
+  <td><code>@nestjs/schematics</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>@nestjs/schematics node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>27</td>
+  <td><code>@nestjs/testing</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Verifies imports, entry points, or version behavior.</td>
+</tr>
+<tr>
+  <td>28</td>
+  <td><code>@types/bcrypt</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>@types/bcrypt node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>29</td>
+  <td><code>@types/cookie-parser</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>@types/cookie-parser node in apps/api/package.json.</td>
+</tr>
+<tr>
+  <td>30</td>
+  <td><code>@types/express</code><br><small style="color:var(--muted)">apps/api/package.json</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>@types/express node in apps/api/package.json.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>apps/web/package.json</code></td><td>59 nodes</td></tr>
+<tr><td><code>apps/api/package.json</code></td><td>39 nodes</td></tr>
+<tr><td><code>package.json</code></td><td>32 nodes</td></tr>
+<tr><td><code>packages/ui/package.json</code></td><td>28 nodes</td></tr>
+<tr><td><code>turbo.json</code></td><td>25 nodes</td></tr>
+<tr><td><code>tsconfig.base.json</code></td><td>22 nodes</td></tr>
+<tr><td><code>packages/config-typescript/base.json</code></td><td>21 nodes</td></tr>
+<tr><td><code>packages/types/package.json</code></td><td>21 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x370, imports x8. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 3. CLI & Skill Installers ====== -->
+<h2 id="cli-skills">3. CLI &amp; Skill Installers</h2>
+<p>CLI &amp; Skill Installers groups implementation around claudemd, graphify, mostly in CLAUDE.md. This section covers 2 nodes and 1 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: CLI &amp; Skill Installers (2 nodes, 1 edges)
+    claude_md_c26df1fa("CLAUDE.md")
+    forgeops_claude_graphify_c6a3e61a("graphify<br/><small>CLAUDE.md</small>")
+    claude_md_c26df1fa -->|contains| forgeops_claude_graphify_c6a3e61a
+    class claude_md_c26df1fa concept;
+    class forgeops_claude_graphify_c6a3e61a concept;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>CLAUDE.md</code><br><small style="color:var(--muted)">CLAUDE.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing CLAUDE.md.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>graphify</code><br><small style="color:var(--muted)">CLAUDE.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing graphify.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>CLAUDE.md</code></td><td>2 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 4. Serving API ====== -->
+<h2 id="serve-api">4. Serving API</h2>
+<p>Serving API groups implementation around apps, api, modules, providers, mostly in apps/api/package.json, src/providers/README.md, modules/workspaces/workspaces.service.ts. This section covers 298 nodes and 463 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Serving API (298 nodes, 463 edges)
+    subgraph serve_api_common_guards_jwt_auth_guard_ts_abfef17a["common/guards/jwt-auth.guard.ts"]
+        guards_jwt_auth_guard_jwtauthguard_58368fb0("JwtAuthGuard<br/><small>common/guards/jwt-auth.guard.ts</small>")
+        guards_jwt_auth_guard_jwtauthguard_constructor_0c1fed32("constructor()<br/><small>common/guards/jwt-auth.guard.ts</small>")
+        guards_jwt_auth_guard_jwtauthguard_canactivate_c48d13ba("canActivate()<br/><small>common/guards/jwt-auth.guard.ts</small>")
+    end
+    subgraph serve_api_common_guards_roles_guard_ts_665c99db["common/guards/roles.guard.ts"]
+        guards_roles_guard_rolesguard_ae1dc393("RolesGuard<br/><small>common/guards/roles.guard.ts</small>")
+        guards_roles_guard_rolesguard_constructor_eefff9c4("constructor()<br/><small>common/guards/roles.guard.ts</small>")
+        guards_roles_guard_rolesguard_canactivate_663974ab("canActivate()<br/><small>common/guards/roles.guard.ts</small>")
+    end
+    subgraph serve_api_common_guards_workspace_guard_ts_bd9b7ba9["common/guards/workspace.guard.ts"]
+        guards_workspace_guard_workspaceguard_8e459dba("WorkspaceGuard<br/><small>common/guards/workspace.guard.ts</small>")
+        guards_workspace_guard_workspaceguard_constructo_4ea9b5d8("constructor()<br/><small>common/guards/workspace.guard.ts</small>")
+        guards_workspace_guard_workspaceguard_canactivat_705e874d("canActivate()<br/><small>common/guards/workspace.guard.ts</small>")
+    end
+    subgraph serve_api_common_interceptors_audit_interceptor_ba53c152["common/interceptors/audit.interceptor.ts"]
+        interceptors_audit_interceptor_auditinterceptor_452ebb97("AuditInterceptor<br/><small>common/interceptors/audit.interceptor.ts</small>")
+        interceptors_audit_interceptor_auditinterceptor_954f0d0d("constructor()<br/><small>common/interceptors/audit.interceptor.ts</small>")
+        interceptors_audit_interceptor_auditinterceptor_36f3c334("intercept()<br/><small>common/interceptors/audit.interceptor.ts</small>")
+    end
+    apps_api_src_app_module_ts_b6313ec1("app.module.ts")
+    auth_auth_controller_authcontroller_b37ee9c4("AuthController<br/><small>modules/auth/auth.controller.ts</small>")
+    auth_auth_service_authservice_3fd7c0c6("AuthService<br/><small>modules/auth/auth.service.ts</small>")
+    workspaces_workspaces_controller_workspacescontr_03e417b9("WorkspacesController<br/><small>modules/workspaces/workspaces.controller.ts</small>")
+    workspaces_workspaces_service_workspacesservice_c1a5841c("WorkspacesService<br/><small>modules/workspaces/workspaces.service.ts</small>")
+    prisma_prisma_service_prismaservice_d66b1c5d("PrismaService<br/><small>src/prisma/prisma.service.ts</small>")
+    interceptors_audit_interceptor_auditinterceptor_452ebb97 -->|method| interceptors_audit_interceptor_auditinterceptor_954f0d0d
+    interceptors_audit_interceptor_auditinterceptor_452ebb97 -->|method| interceptors_audit_interceptor_auditinterceptor_36f3c334
+    guards_jwt_auth_guard_jwtauthguard_58368fb0 -->|method| guards_jwt_auth_guard_jwtauthguard_constructor_0c1fed32
+    guards_jwt_auth_guard_jwtauthguard_58368fb0 -->|method| guards_jwt_auth_guard_jwtauthguard_canactivate_c48d13ba
+    guards_workspace_guard_workspaceguard_8e459dba -->|method| guards_workspace_guard_workspaceguard_constructo_4ea9b5d8
+    guards_workspace_guard_workspaceguard_8e459dba -->|method| guards_workspace_guard_workspaceguard_canactivat_705e874d
+    guards_roles_guard_rolesguard_ae1dc393 -->|method| guards_roles_guard_rolesguard_constructor_eefff9c4
+    guards_roles_guard_rolesguard_ae1dc393 -->|method| guards_roles_guard_rolesguard_canactivate_663974ab
+    apps_api_src_app_module_ts_b6313ec1 -->|imports| guards_jwt_auth_guard_jwtauthguard_58368fb0
+    apps_api_src_app_module_ts_b6313ec1 -->|imports| guards_workspace_guard_workspaceguard_8e459dba
+    apps_api_src_app_module_ts_b6313ec1 -->|imports| guards_roles_guard_rolesguard_ae1dc393
+    apps_api_src_app_module_ts_b6313ec1 -->|imports| interceptors_audit_interceptor_auditinterceptor_452ebb97
+    %% Omitted for readability: 280 nodes, 0 edges
+    class guards_jwt_auth_guard_jwtauthguard_58368fb0 klass;
+    class guards_jwt_auth_guard_jwtauthguard_constructor_0c1fed32 function;
+    class guards_jwt_auth_guard_jwtauthguard_canactivate_c48d13ba function;
+    class guards_roles_guard_rolesguard_ae1dc393 klass;
+    class guards_roles_guard_rolesguard_constructor_eefff9c4 function;
+    class guards_roles_guard_rolesguard_canactivate_663974ab function;
+    class guards_workspace_guard_workspaceguard_8e459dba klass;
+    class guards_workspace_guard_workspaceguard_constructo_4ea9b5d8 function;
+    class guards_workspace_guard_workspaceguard_canactivat_705e874d function;
+    class interceptors_audit_interceptor_auditinterceptor_452ebb97 klass;
+    class interceptors_audit_interceptor_auditinterceptor_954f0d0d function;
+    class interceptors_audit_interceptor_auditinterceptor_36f3c334 function;
+    class apps_api_src_app_module_ts_b6313ec1 module;
+    class auth_auth_controller_authcontroller_b37ee9c4 klass;
+    class auth_auth_service_authservice_3fd7c0c6 klass;
+    class workspaces_workspaces_controller_workspacescontr_03e417b9 klass;
+    class workspaces_workspaces_service_workspacesservice_c1a5841c async;
+    class prisma_prisma_service_prismaservice_d66b1c5d klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>auth.module.ts</code><br><small style="color:var(--muted)">modules/auth/auth.module.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>app.module.ts</code><br><small style="color:var(--muted)">api/src/app.module.ts</small></td>
+  <td><code>auth.controller.ts</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>auth.service.ts</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br><code>AuthController</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br>+3 more</td>
+  <td>Module file in modules/auth/auth.module.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>AuthModule</code><br><small style="color:var(--muted)">modules/auth/auth.module.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>app.module.ts</code><br><small style="color:var(--muted)">api/src/app.module.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>AuthModule node in modules/auth/auth.module.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>auth.service.ts</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>auth.module.ts</code><br><small style="color:var(--muted)">modules/auth/auth.module.ts</small><br><code>prisma.service.ts</code><br><small style="color:var(--muted)">src/prisma/prisma.service.ts</small><br><code>PrismaService</code><br><small style="color:var(--muted)">src/prisma/prisma.service.ts</small></td>
+  <td><code>auth.controller.ts</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>jwt.strategy.ts</code><br><small style="color:var(--muted)">modules/auth/jwt.strategy.ts</small><br><code>JwtPayload</code><br><small style="color:var(--muted)">modules/auth/jwt.strategy.ts</small><br>+4 more</td>
+  <td>Module file in modules/auth/auth.service.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>TokenPair</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>TokenPair node in modules/auth/auth.service.ts.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>AuthUser</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>AuthUser node in modules/auth/auth.service.ts.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>AuthService</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>auth.module.ts</code><br><small style="color:var(--muted)">modules/auth/auth.module.ts</small></td>
+  <td><code>auth.controller.ts</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>constructor()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br><code>formatUser()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br>+5 more</td>
+  <td>AuthService node in modules/auth/auth.service.ts.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>.constructor()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthService</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>.constructor() node in modules/auth/auth.service.ts.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>.register()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthService</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><code>formatUser()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br><code>issueTokens()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td>.register() node in modules/auth/auth.service.ts.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>.login()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthService</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><code>formatUser()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br><code>issueTokens()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td>.login() node in modules/auth/auth.service.ts.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>.refresh()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthService</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><code>formatUser()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br><code>issueTokens()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td>.refresh() node in modules/auth/auth.service.ts.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>.me()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthService</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><code>formatUser()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td>.me() node in modules/auth/auth.service.ts.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>.issueTokens()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthService</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br><code>login()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br><code>refresh()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br>+1 more</td>
+  <td>No direct outbound edge</td>
+  <td>.issueTokens() node in modules/auth/auth.service.ts.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>.formatUser()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthService</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br><code>login()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br><code>me()</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br>+2 more</td>
+  <td>No direct outbound edge</td>
+  <td>.formatUser() node in modules/auth/auth.service.ts.</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>JwtStrategy</code><br><small style="color:var(--muted)">modules/auth/jwt.strategy.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>auth.module.ts</code><br><small style="color:var(--muted)">modules/auth/auth.module.ts</small></td>
+  <td><code>constructor()</code><br><small style="color:var(--muted)">modules/auth/jwt.strategy.ts</small><br><code>validate()</code><br><small style="color:var(--muted)">modules/auth/jwt.strategy.ts</small></td>
+  <td>JwtStrategy node in modules/auth/jwt.strategy.ts.</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>.constructor()</code><br><small style="color:var(--muted)">modules/auth/jwt.strategy.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>JwtStrategy</code><br><small style="color:var(--muted)">modules/auth/jwt.strategy.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>.constructor() node in modules/auth/jwt.strategy.ts.</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>.validate()</code><br><small style="color:var(--muted)">modules/auth/jwt.strategy.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>JwtStrategy</code><br><small style="color:var(--muted)">modules/auth/jwt.strategy.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>.validate() node in modules/auth/jwt.strategy.ts.</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>auth.controller.ts</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>auth.module.ts</code><br><small style="color:var(--muted)">modules/auth/auth.module.ts</small><br><code>auth.service.ts</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small><br><code>AuthenticatedUser</code><br><small style="color:var(--muted)">common/types/request.ts</small><br>+6 more</td>
+  <td><code>login.dto.ts</code><br><small style="color:var(--muted)">auth/dto/login.dto.ts</small><br><code>LoginDto</code><br><small style="color:var(--muted)">auth/dto/login.dto.ts</small><br><code>register.dto.ts</code><br><small style="color:var(--muted)">auth/dto/register.dto.ts</small><br>+1 more</td>
+  <td>Module file in modules/auth/auth.controller.ts.</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>AuthController</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>auth.module.ts</code><br><small style="color:var(--muted)">modules/auth/auth.module.ts</small></td>
+  <td><code>clearCookies()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>constructor()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>login()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br>+5 more</td>
+  <td>AuthController node in modules/auth/auth.controller.ts.</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>.constructor()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthController</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>.constructor() node in modules/auth/auth.controller.ts.</td>
+</tr>
+<tr>
+  <td>20</td>
+  <td><code>.setCookies()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthController</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><code>login()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>parseDuration()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>refresh()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br>+1 more</td>
+  <td>.setCookies() node in modules/auth/auth.controller.ts.</td>
+</tr>
+<tr>
+  <td>21</td>
+  <td><code>.clearCookies()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthController</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><code>logout()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td>.clearCookies() node in modules/auth/auth.controller.ts.</td>
+</tr>
+<tr>
+  <td>22</td>
+  <td><code>.register()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthController</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>setCookies()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>.register() node in modules/auth/auth.controller.ts.</td>
+</tr>
+<tr>
+  <td>23</td>
+  <td><code>.login()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthController</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>setCookies()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>.login() node in modules/auth/auth.controller.ts.</td>
+</tr>
+<tr>
+  <td>24</td>
+  <td><code>.refresh()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthController</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>setCookies()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>.refresh() node in modules/auth/auth.controller.ts.</td>
+</tr>
+<tr>
+  <td>25</td>
+  <td><code>.logout()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthController</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>clearCookies()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>.logout() node in modules/auth/auth.controller.ts.</td>
+</tr>
+<tr>
+  <td>26</td>
+  <td><code>.me()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>AuthController</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>.me() node in modules/auth/auth.controller.ts.</td>
+</tr>
+<tr>
+  <td>27</td>
+  <td><code>parseDuration()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>setCookies()</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>parseDuration() node in modules/auth/auth.controller.ts.</td>
+</tr>
+<tr>
+  <td>28</td>
+  <td><code>login.dto.ts</code><br><small style="color:var(--muted)">auth/dto/login.dto.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>auth.controller.ts</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>auth.service.ts</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>Module file in auth/dto/login.dto.ts.</td>
+</tr>
+<tr>
+  <td>29</td>
+  <td><code>LoginDto</code><br><small style="color:var(--muted)">auth/dto/login.dto.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>auth.controller.ts</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>auth.service.ts</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>LoginDto node in auth/dto/login.dto.ts.</td>
+</tr>
+<tr>
+  <td>30</td>
+  <td><code>register.dto.ts</code><br><small style="color:var(--muted)">auth/dto/register.dto.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>auth.controller.ts</code><br><small style="color:var(--muted)">modules/auth/auth.controller.ts</small><br><code>auth.service.ts</code><br><small style="color:var(--muted)">modules/auth/auth.service.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>Module file in auth/dto/register.dto.ts.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>apps/api/package.json</code></td><td>29 nodes</td></tr>
+<tr><td><code>src/providers/README.md</code></td><td>14 nodes</td></tr>
+<tr><td><code>modules/workspaces/workspaces.service.ts</code></td><td>12 nodes</td></tr>
+<tr><td><code>modules/auth/auth.controller.ts</code></td><td>11 nodes</td></tr>
+<tr><td><code>modules/auth/auth.service.ts</code></td><td>11 nodes</td></tr>
+<tr><td><code>providers/ai/ai-provider.interface.ts</code></td><td>10 nodes</td></tr>
+<tr><td><code>README.md</code></td><td>9 nodes</td></tr>
+<tr><td><code>modules/workspaces/workspaces.controller.ts</code></td><td>9 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x137, imports x109, imports x97, method x71. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 5. Security & Global Graph ====== -->
+<h2 id="security-global">5. Security &amp; Global Graph</h2>
+<p>Security &amp; Global Graph groups implementation around security, packages, types, apps, mostly in types/src/security.ts, providers/security/security-scanner.interface.ts, types/src/audit.ts. This section covers 26 nodes and 33 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Security &amp; Global Graph (26 nodes, 33 edges)
+    subgraph security_global_providers_security_security_scan_f6187f98["providers/security/security-scanner.interface.ts"]
+        apps_api_src_providers_security_security_scanner_86983212("security-scanner.interface.ts")
+        security_security_scanner_interface_scaninput_39aba27f("ScanInput<br/><small>providers/security/security-scanner.interface.ts</small>")
+        security_security_scanner_interface_scanresult_4ba96fec("ScanResult<br/><small>providers/security/security-scanner.interface.ts</small>")
+        security_security_scanner_interface_security_sca_42315258("SECURITY_SCANNER<br/><small>providers/security/security-scanner.interface.ts</small>")
+        security_security_scanner_interface_securityscan_9f791a50("SecurityScanner<br/><small>providers/security/security-scanner.interface.ts</small>")
+        security_security_scanner_interface_scannerfindi_c927868c("ScannerFinding<br/><small>providers/security/security-scanner.interface.ts</small>")
+    end
+    subgraph security_global_types_src_enums_ts_3d6b2ce2["types/src/enums.ts"]
+        packages_types_src_enums_ts_78c2e31b("enums.ts")
+        src_enums_auditaction_792249fe("AuditAction<br/><small>types/src/enums.ts</small>")
+        src_enums_findingkind_0df4af1e("FindingKind<br/><small>types/src/enums.ts</small>")
+        src_enums_severity_2d89a4cf("Severity<br/><small>types/src/enums.ts</small>")
+    end
+    subgraph security_global_providers_security_mock_security_7c9ae425["providers/security/mock-security.scanner.ts"]
+        security_mock_security_scanner_mocksecurityscann_d162b8fe("MockSecurityScanner<br/><small>providers/security/mock-security.scanner.ts</small>")
+        security_mock_security_scanner_mocksecurityscann_21c4e993("scan()<br/><small>providers/security/mock-security.scanner.ts</small>")
+        apps_api_src_providers_security_mock_security_sc_9e096703("mock-security.scanner.ts")
+    end
+    subgraph security_global_providers_security_security_modu_dda730b3["providers/security/security.module.ts"]
+        apps_api_src_providers_security_security_module_d393fb42("security.module.ts")
+        security_security_module_securityprovidermodule_fbb5db57("SecurityProviderModule<br/><small>providers/security/security.module.ts</small>")
+        security_security_module_choice_0e3cae27("choice<br/><small>providers/security/security.module.ts</small>")
+    end
+    packages_types_src_audit_ts_fedd3010("audit.ts")
+    packages_types_src_security_ts_2e0d8c2e("security.ts")
+    security_mock_security_scanner_mocksecurityscann_d162b8fe -->|method| security_mock_security_scanner_mocksecurityscann_21c4e993
+    apps_api_src_providers_security_security_scanner_86983212 -->|imports| apps_api_src_providers_security_mock_security_sc_9e096703
+    apps_api_src_providers_security_security_scanner_86983212 -->|imports| apps_api_src_providers_security_security_module_d393fb42
+    security_security_scanner_interface_scaninput_39aba27f -->|imports| apps_api_src_providers_security_mock_security_sc_9e096703
+    security_security_scanner_interface_scanresult_4ba96fec -->|imports| apps_api_src_providers_security_mock_security_sc_9e096703
+    security_security_scanner_interface_security_sca_42315258 -->|imports| apps_api_src_providers_security_security_module_d393fb42
+    security_security_scanner_interface_securityscan_9f791a50 -->|imports| apps_api_src_providers_security_mock_security_sc_9e096703
+    apps_api_src_providers_security_mock_security_sc_9e096703 -->|imports| apps_api_src_providers_security_security_module_d393fb42
+    security_mock_security_scanner_mocksecurityscann_d162b8fe -->|imports| apps_api_src_providers_security_security_module_d393fb42
+    packages_types_src_audit_ts_fedd3010 -->|imports| packages_types_src_enums_ts_78c2e31b
+    packages_types_src_audit_ts_fedd3010 -->|imports| src_enums_auditaction_792249fe
+    packages_types_src_security_ts_2e0d8c2e -->|imports| packages_types_src_enums_ts_78c2e31b
+    packages_types_src_security_ts_2e0d8c2e -->|imports| src_enums_findingkind_0df4af1e
+    packages_types_src_security_ts_2e0d8c2e -->|imports| src_enums_severity_2d89a4cf
+    %% Omitted for readability: 8 nodes, 0 edges
+    class apps_api_src_providers_security_security_scanner_86983212 module;
+    class security_security_scanner_interface_scaninput_39aba27f klass;
+    class security_security_scanner_interface_scanresult_4ba96fec klass;
+    class security_security_scanner_interface_security_sca_42315258 klass;
+    class security_security_scanner_interface_securityscan_9f791a50 klass;
+    class security_security_scanner_interface_scannerfindi_c927868c klass;
+    class packages_types_src_enums_ts_78c2e31b module;
+    class src_enums_auditaction_792249fe klass;
+    class src_enums_findingkind_0df4af1e klass;
+    class src_enums_severity_2d89a4cf klass;
+    class security_mock_security_scanner_mocksecurityscann_d162b8fe klass;
+    class security_mock_security_scanner_mocksecurityscann_21c4e993 function;
+    class apps_api_src_providers_security_mock_security_sc_9e096703 module;
+    class apps_api_src_providers_security_security_module_d393fb42 module;
+    class security_security_module_securityprovidermodule_fbb5db57 klass;
+    class security_security_module_choice_0e3cae27 function;
+    class packages_types_src_audit_ts_fedd3010 module;
+    class packages_types_src_security_ts_2e0d8c2e module;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>audit.ts</code><br><small style="color:var(--muted)">types/src/audit.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>AuditAction</code><br><small style="color:var(--muted)">types/src/enums.ts</small><br><code>enums.ts</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td>Module file in types/src/audit.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>auditQuerySchema</code><br><small style="color:var(--muted)">types/src/audit.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>auditQuerySchema node in types/src/audit.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>AuditQueryInput</code><br><small style="color:var(--muted)">types/src/audit.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>AuditQueryInput node in types/src/audit.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>AuditEventSummary</code><br><small style="color:var(--muted)">types/src/audit.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>AuditEventSummary node in types/src/audit.ts.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>security.ts</code><br><small style="color:var(--muted)">types/src/security.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>enums.ts</code><br><small style="color:var(--muted)">types/src/enums.ts</small><br><code>FindingKind</code><br><small style="color:var(--muted)">types/src/enums.ts</small><br><code>Severity</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td>Module file in types/src/security.ts.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>severityEnum</code><br><small style="color:var(--muted)">types/src/security.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>severityEnum node in types/src/security.ts.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>findingKindEnum</code><br><small style="color:var(--muted)">types/src/security.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>findingKindEnum node in types/src/security.ts.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>SecurityFindingSummary</code><br><small style="color:var(--muted)">types/src/security.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>SecurityFindingSummary node in types/src/security.ts.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>SecurityReportSummary</code><br><small style="color:var(--muted)">types/src/security.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>SecurityReportSummary node in types/src/security.ts.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>SecurityReportDetail</code><br><small style="color:var(--muted)">types/src/security.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>SecurityReportDetail node in types/src/security.ts.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>enums.ts</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>audit.ts</code><br><small style="color:var(--muted)">types/src/audit.ts</small><br><code>security.ts</code><br><small style="color:var(--muted)">types/src/security.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>Module file in types/src/enums.ts.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>Severity</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>security.ts</code><br><small style="color:var(--muted)">types/src/security.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>Severity node in types/src/enums.ts.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>FindingKind</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>security.ts</code><br><small style="color:var(--muted)">types/src/security.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>FindingKind node in types/src/enums.ts.</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>AuditAction</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>audit.ts</code><br><small style="color:var(--muted)">types/src/audit.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>AuditAction node in types/src/enums.ts.</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>security-scanner.interface.ts</code><br><small style="color:var(--muted)">providers/security/security-scanner.interface.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>mock-security.scanner.ts</code><br><small style="color:var(--muted)">providers/security/mock-security.scanner.ts</small><br><code>security.module.ts</code><br><small style="color:var(--muted)">providers/security/security.module.ts</small></td>
+  <td>Module file in providers/security/security-scanner.interface.ts.</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>ScannerFinding</code><br><small style="color:var(--muted)">providers/security/security-scanner.interface.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Starts scanning or handles scan status.</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>ScanInput</code><br><small style="color:var(--muted)">providers/security/security-scanner.interface.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>mock-security.scanner.ts</code><br><small style="color:var(--muted)">providers/security/mock-security.scanner.ts</small></td>
+  <td>Starts scanning or handles scan status.</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>ScanResult</code><br><small style="color:var(--muted)">providers/security/security-scanner.interface.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>mock-security.scanner.ts</code><br><small style="color:var(--muted)">providers/security/mock-security.scanner.ts</small></td>
+  <td>Starts scanning or handles scan status.</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>SECURITY_SCANNER</code><br><small style="color:var(--muted)">providers/security/security-scanner.interface.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>security.module.ts</code><br><small style="color:var(--muted)">providers/security/security.module.ts</small></td>
+  <td>Starts scanning or handles scan status.</td>
+</tr>
+<tr>
+  <td>20</td>
+  <td><code>SecurityScanner</code><br><small style="color:var(--muted)">providers/security/security-scanner.interface.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>mock-security.scanner.ts</code><br><small style="color:var(--muted)">providers/security/mock-security.scanner.ts</small></td>
+  <td>Starts scanning or handles scan status.</td>
+</tr>
+<tr>
+  <td>21</td>
+  <td><code>mock-security.scanner.ts</code><br><small style="color:var(--muted)">providers/security/mock-security.scanner.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>ScanInput</code><br><small style="color:var(--muted)">providers/security/security-scanner.interface.ts</small><br><code>ScanResult</code><br><small style="color:var(--muted)">providers/security/security-scanner.interface.ts</small><br><code>security-scanner.interface.ts</code><br><small style="color:var(--muted)">providers/security/security-scanner.interface.ts</small><br>+1 more</td>
+  <td><code>security.module.ts</code><br><small style="color:var(--muted)">providers/security/security.module.ts</small></td>
+  <td>Module file in providers/security/mock-security.scanner.ts.</td>
+</tr>
+<tr>
+  <td>22</td>
+  <td><code>MockSecurityScanner</code><br><small style="color:var(--muted)">providers/security/mock-security.scanner.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>scan()</code><br><small style="color:var(--muted)">providers/security/mock-security.scanner.ts</small><br><code>security.module.ts</code><br><small style="color:var(--muted)">providers/security/security.module.ts</small></td>
+  <td>Starts scanning or handles scan status.</td>
+</tr>
+<tr>
+  <td>23</td>
+  <td><code>.scan()</code><br><small style="color:var(--muted)">providers/security/mock-security.scanner.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>MockSecurityScanner</code><br><small style="color:var(--muted)">providers/security/mock-security.scanner.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>Starts scanning or handles scan status.</td>
+</tr>
+<tr>
+  <td>24</td>
+  <td><code>security.module.ts</code><br><small style="color:var(--muted)">providers/security/security.module.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>mock-security.scanner.ts</code><br><small style="color:var(--muted)">providers/security/mock-security.scanner.ts</small><br><code>MockSecurityScanner</code><br><small style="color:var(--muted)">providers/security/mock-security.scanner.ts</small><br><code>security-scanner.interface.ts</code><br><small style="color:var(--muted)">providers/security/security-scanner.interface.ts</small><br>+1 more</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in providers/security/security.module.ts.</td>
+</tr>
+<tr>
+  <td>25</td>
+  <td><code>choice</code><br><small style="color:var(--muted)">providers/security/security.module.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>choice node in providers/security/security.module.ts.</td>
+</tr>
+<tr>
+  <td>26</td>
+  <td><code>SecurityProviderModule</code><br><small style="color:var(--muted)">providers/security/security.module.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>SecurityProviderModule node in providers/security/security.module.ts.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>providers/security/security-scanner.interface.ts</code></td><td>6 nodes</td></tr>
+<tr><td><code>types/src/security.ts</code></td><td>6 nodes</td></tr>
+<tr><td><code>types/src/audit.ts</code></td><td>4 nodes</td></tr>
+<tr><td><code>types/src/enums.ts</code></td><td>4 nodes</td></tr>
+<tr><td><code>providers/security/mock-security.scanner.ts</code></td><td>3 nodes</td></tr>
+<tr><td><code>providers/security/security.module.ts</code></td><td>3 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x19, imports x8, imports x5, method x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 6. Shared Zod Schemas ====== -->
+<h2 id="shared-zod-schemas">6. Shared Zod Schemas</h2>
+<p>Shared Zod Schemas groups implementation around packages, types, servicests, commonts, mostly in types/src/services.ts, types/src/common.ts. This section covers 17 nodes and 18 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Shared Zod Schemas (17 nodes, 18 edges)
+    subgraph shared_zod_schemas_types_src_services_ts_937e41a0["types/src/services.ts"]
+        packages_types_src_services_ts_51dad899("services.ts")
+        src_services_createserviceinput_57e94cb2("CreateServiceInput<br/><small>types/src/services.ts</small>")
+        src_services_serviceconfig_e2a60ccb("ServiceConfig<br/><small>types/src/services.ts</small>")
+        src_services_servicesummary_5336bb15("ServiceSummary<br/><small>types/src/services.ts</small>")
+        src_services_updateserviceinput_a819e98c("UpdateServiceInput<br/><small>types/src/services.ts</small>")
+        src_services_createserviceschema_7c22ebce("createServiceSchema<br/><small>types/src/services.ts</small>")
+        src_services_runtimeenum_c84f5730("runtimeEnum<br/><small>types/src/services.ts</small>")
+        src_services_serviceconfigschema_f9a48661("serviceConfigSchema<br/><small>types/src/services.ts</small>")
+        src_services_updateserviceschema_2d2a69db("updateServiceSchema<br/><small>types/src/services.ts</small>")
+    end
+    subgraph shared_zod_schemas_types_src_common_ts_888d03b7["types/src/common.ts"]
+        packages_types_src_common_ts_ad8e0f42("common.ts")
+        src_common_envvarschema_d5ad183b("envVarSchema<br/><small>types/src/common.ts</small>")
+        src_common_slugschema_80bf0bad("slugSchema<br/><small>types/src/common.ts</small>")
+        src_common_envvar_07d6f44e("EnvVar<br/><small>types/src/common.ts</small>")
+        src_common_pageresult_d3a3388a("PageResult<br/><small>types/src/common.ts</small>")
+        src_common_pagination_4afe2070("Pagination<br/><small>types/src/common.ts</small>")
+        src_common_idschema_750517d9("idSchema<br/><small>types/src/common.ts</small>")
+        src_common_paginationschema_90782d74("paginationSchema<br/><small>types/src/common.ts</small>")
+    end
+    packages_types_src_common_ts_ad8e0f42 -->|imports| packages_types_src_services_ts_51dad899
+    src_common_slugschema_80bf0bad -->|imports| packages_types_src_services_ts_51dad899
+    src_common_envvarschema_d5ad183b -->|imports| packages_types_src_services_ts_51dad899
+    class packages_types_src_services_ts_51dad899 module;
+    class src_services_createserviceinput_57e94cb2 klass;
+    class src_services_serviceconfig_e2a60ccb klass;
+    class src_services_servicesummary_5336bb15 klass;
+    class src_services_updateserviceinput_a819e98c klass;
+    class src_services_createserviceschema_7c22ebce function;
+    class src_services_runtimeenum_c84f5730 function;
+    class src_services_serviceconfigschema_f9a48661 function;
+    class src_services_updateserviceschema_2d2a69db function;
+    class packages_types_src_common_ts_ad8e0f42 module;
+    class src_common_envvarschema_d5ad183b function;
+    class src_common_slugschema_80bf0bad function;
+    class src_common_envvar_07d6f44e klass;
+    class src_common_pageresult_d3a3388a klass;
+    class src_common_pagination_4afe2070 klass;
+    class src_common_idschema_750517d9 function;
+    class src_common_paginationschema_90782d74 function;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>common.ts</code><br><small style="color:var(--muted)">types/src/common.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>services.ts</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td>Module file in types/src/common.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>idSchema</code><br><small style="color:var(--muted)">types/src/common.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>idSchema node in types/src/common.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>paginationSchema</code><br><small style="color:var(--muted)">types/src/common.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>paginationSchema node in types/src/common.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>Pagination</code><br><small style="color:var(--muted)">types/src/common.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Pagination node in types/src/common.ts.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>slugSchema</code><br><small style="color:var(--muted)">types/src/common.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>services.ts</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td>slugSchema node in types/src/common.ts.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>envVarSchema</code><br><small style="color:var(--muted)">types/src/common.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>services.ts</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td>envVarSchema node in types/src/common.ts.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>EnvVar</code><br><small style="color:var(--muted)">types/src/common.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>EnvVar node in types/src/common.ts.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>PageResult</code><br><small style="color:var(--muted)">types/src/common.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Organizes documentation pages, navigation, or content lookup.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>services.ts</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>common.ts</code><br><small style="color:var(--muted)">types/src/common.ts</small><br><code>envVarSchema</code><br><small style="color:var(--muted)">types/src/common.ts</small><br><code>slugSchema</code><br><small style="color:var(--muted)">types/src/common.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>Module file in types/src/services.ts.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>serviceConfigSchema</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Reads, resolves, or persists project configuration.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>ServiceConfig</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Reads, resolves, or persists project configuration.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>runtimeEnum</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>runtimeEnum node in types/src/services.ts.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>createServiceSchema</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>createServiceSchema node in types/src/services.ts.</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>CreateServiceInput</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>CreateServiceInput node in types/src/services.ts.</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>updateServiceSchema</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>updateServiceSchema node in types/src/services.ts.</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>UpdateServiceInput</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>UpdateServiceInput node in types/src/services.ts.</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>ServiceSummary</code><br><small style="color:var(--muted)">types/src/services.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>ServiceSummary node in types/src/services.ts.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>types/src/services.ts</code></td><td>9 nodes</td></tr>
+<tr><td><code>types/src/common.ts</code></td><td>8 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x15, imports x2, imports x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 7. AI Types ====== -->
+<h2 id="ai-types">7. AI Types</h2>
+<p>AI Types groups implementation around aits, packages, types, aisubjectkindenum, mostly in types/src/ai.ts. This section covers 12 nodes and 11 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: AI Types (12 nodes, 11 edges)
+    packages_types_src_ai_ts_ce31da91("ai.ts")
+    src_ai_aisubjectkindenum_f08aa3ee("aiSubjectKindEnum<br/><small>types/src/ai.ts</small>")
+    src_ai_aisubjectkind_41ebe9f6("AiSubjectKind<br/><small>types/src/ai.ts</small>")
+    src_ai_aianalyzeschema_2c43ab78("aiAnalyzeSchema<br/><small>types/src/ai.ts</small>")
+    src_ai_aianalyzerequest_ae080b43("AiAnalyzeRequest<br/><small>types/src/ai.ts</small>")
+    src_ai_aichatmessageschema_1a8b6969("aiChatMessageSchema<br/><small>types/src/ai.ts</small>")
+    src_ai_aichatmessage_c43d68de("AiChatMessage<br/><small>types/src/ai.ts</small>")
+    src_ai_aichatschema_2ec37f18("aiChatSchema<br/><small>types/src/ai.ts</small>")
+    src_ai_aichatrequest_b1285022("AiChatRequest<br/><small>types/src/ai.ts</small>")
+    src_ai_airootcause_f653cf2c("AiRootCause<br/><small>types/src/ai.ts</small>")
+    src_ai_airecommendation_522f5e12("AiRecommendation<br/><small>types/src/ai.ts</small>")
+    src_ai_aianalysisresult_6122b67e("AiAnalysisResult<br/><small>types/src/ai.ts</small>")
+    packages_types_src_ai_ts_ce31da91 -->|contains| src_ai_aisubjectkindenum_f08aa3ee
+    packages_types_src_ai_ts_ce31da91 -->|contains| src_ai_aisubjectkind_41ebe9f6
+    packages_types_src_ai_ts_ce31da91 -->|contains| src_ai_aianalyzeschema_2c43ab78
+    packages_types_src_ai_ts_ce31da91 -->|contains| src_ai_aianalyzerequest_ae080b43
+    packages_types_src_ai_ts_ce31da91 -->|contains| src_ai_aichatmessageschema_1a8b6969
+    packages_types_src_ai_ts_ce31da91 -->|contains| src_ai_aichatmessage_c43d68de
+    packages_types_src_ai_ts_ce31da91 -->|contains| src_ai_aichatschema_2ec37f18
+    packages_types_src_ai_ts_ce31da91 -->|contains| src_ai_aichatrequest_b1285022
+    packages_types_src_ai_ts_ce31da91 -->|contains| src_ai_airootcause_f653cf2c
+    packages_types_src_ai_ts_ce31da91 -->|contains| src_ai_airecommendation_522f5e12
+    packages_types_src_ai_ts_ce31da91 -->|contains| src_ai_aianalysisresult_6122b67e
+    class packages_types_src_ai_ts_ce31da91 module;
+    class src_ai_aisubjectkindenum_f08aa3ee function;
+    class src_ai_aisubjectkind_41ebe9f6 klass;
+    class src_ai_aianalyzeschema_2c43ab78 function;
+    class src_ai_aianalyzerequest_ae080b43 klass;
+    class src_ai_aichatmessageschema_1a8b6969 function;
+    class src_ai_aichatmessage_c43d68de klass;
+    class src_ai_aichatschema_2ec37f18 function;
+    class src_ai_aichatrequest_b1285022 klass;
+    class src_ai_airootcause_f653cf2c klass;
+    class src_ai_airecommendation_522f5e12 klass;
+    class src_ai_aianalysisresult_6122b67e klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>ai.ts</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in types/src/ai.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>aiSubjectKindEnum</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>aiSubjectKindEnum node in types/src/ai.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>AiSubjectKind</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>AiSubjectKind node in types/src/ai.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>aiAnalyzeSchema</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Orchestrates analysis and returns structured documentation data.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>AiAnalyzeRequest</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Orchestrates analysis and returns structured documentation data.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>aiChatMessageSchema</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Supports retrieval-augmented Q&amp;A or streaming chat.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>AiChatMessage</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Supports retrieval-augmented Q&amp;A or streaming chat.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>aiChatSchema</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Supports retrieval-augmented Q&amp;A or streaming chat.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>AiChatRequest</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Supports retrieval-augmented Q&amp;A or streaming chat.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>AiRootCause</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>AiRootCause node in types/src/ai.ts.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>AiRecommendation</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>AiRecommendation node in types/src/ai.ts.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>AiAnalysisResult</code><br><small style="color:var(--muted)">types/src/ai.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Orchestrates analysis and returns structured documentation data.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>types/src/ai.ts</code></td><td>12 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x11. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 8. Observability Types ====== -->
+<h2 id="observability-types">8. Observability Types</h2>
+<p>Observability Types groups implementation around observabilityts, packages, types, metricsrangeschema, mostly in types/src/observability.ts, types/src/enums.ts. This section covers 12 nodes and 11 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Observability Types (12 nodes, 11 edges)
+    subgraph observability_types_types_src_observability_ts_2cacf0c5["types/src/observability.ts"]
+        packages_types_src_observability_ts_f7f5a8f5("observability.ts")
+        src_observability_incidentsummary_da8dea12("IncidentSummary<br/><small>types/src/observability.ts</small>")
+        src_observability_logentrysummary_8f96f432("LogEntrySummary<br/><small>types/src/observability.ts</small>")
+        src_observability_loglevel_1744cb9f("LogLevel<br/><small>types/src/observability.ts</small>")
+        src_observability_logsqueryinput_445f2644("LogsQueryInput<br/><small>types/src/observability.ts</small>")
+        src_observability_metricsamplepoint_65f9de6e("MetricSamplePoint<br/><small>types/src/observability.ts</small>")
+        src_observability_metricsrangeinput_39325eaa("MetricsRangeInput<br/><small>types/src/observability.ts</small>")
+        src_observability_metricsseries_3478a48e("MetricsSeries<br/><small>types/src/observability.ts</small>")
+        src_observability_loglevelenum_651d51fc("logLevelEnum<br/><small>types/src/observability.ts</small>")
+        src_observability_logsqueryschema_1d653776("logsQuerySchema<br/><small>types/src/observability.ts</small>")
+        src_observability_metricsrangeschema_bc46245a("metricsRangeSchema<br/><small>types/src/observability.ts</small>")
+    end
+    src_enums_incidentstatus_4d2f39cc("IncidentStatus<br/><small>types/src/enums.ts</small>")
+    packages_types_src_observability_ts_f7f5a8f5 -->|imports| src_enums_incidentstatus_4d2f39cc
+    class packages_types_src_observability_ts_f7f5a8f5 module;
+    class src_observability_incidentsummary_da8dea12 klass;
+    class src_observability_logentrysummary_8f96f432 klass;
+    class src_observability_loglevel_1744cb9f klass;
+    class src_observability_logsqueryinput_445f2644 klass;
+    class src_observability_metricsamplepoint_65f9de6e klass;
+    class src_observability_metricsrangeinput_39325eaa klass;
+    class src_observability_metricsseries_3478a48e async;
+    class src_observability_loglevelenum_651d51fc function;
+    class src_observability_logsqueryschema_1d653776 function;
+    class src_observability_metricsrangeschema_bc46245a function;
+    class src_enums_incidentstatus_4d2f39cc klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>observability.ts</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>IncidentStatus</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td>Module file in types/src/observability.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>metricsRangeSchema</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>metricsRangeSchema node in types/src/observability.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>MetricsRangeInput</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>MetricsRangeInput node in types/src/observability.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>MetricSamplePoint</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>MetricSamplePoint node in types/src/observability.ts.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>MetricsSeries</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td><span class="tag tag-async">Async</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>MetricsSeries node in types/src/observability.ts.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>logLevelEnum</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>logLevelEnum node in types/src/observability.ts.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>LogLevel</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>LogLevel node in types/src/observability.ts.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>logsQuerySchema</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>logsQuerySchema node in types/src/observability.ts.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>LogsQueryInput</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>LogsQueryInput node in types/src/observability.ts.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>LogEntrySummary</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>LogEntrySummary node in types/src/observability.ts.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>IncidentSummary</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>IncidentSummary node in types/src/observability.ts.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>IncidentStatus</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>observability.ts</code><br><small style="color:var(--muted)">types/src/observability.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>IncidentStatus node in types/src/enums.ts.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>types/src/observability.ts</code></td><td>11 nodes</td></tr>
+<tr><td><code>types/src/enums.ts</code></td><td>1 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x10, imports x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 9. Community 67 ====== -->
+<h2 id="community-67">9. Community 67</h2>
+<p>Community 67 groups implementation around readmemd, forgeops, status, architecture, mostly in README.md. This section covers 12 nodes and 11 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Community 67 (12 nodes, 11 edges)
+    forgeops_readme_forgeops_c0c63c73("ForgeOps<br/><small>README.md</small>")
+    readme_md_eeb98ce0("README.md")
+    forgeops_readme_getting_started_6d7fcabc("Getting started<br/><small>README.md</small>")
+    forgeops_readme_project_layout_dfc7216d("Project layout<br/><small>README.md</small>")
+    forgeops_readme_status_90cabbbe("Status<br/><small>README.md</small>")
+    forgeops_readme_architecture_67a49d62("Architecture<br/><small>README.md</small>")
+    forgeops_readme_build_roadmap_10_days_e8134557("Build roadmap (10 days)<br/><small>README.md</small>")
+    forgeops_readme_license_e2a1a4fd("License<br/><small>README.md</small>")
+    forgeops_readme_what_s_real_vs_mocked_851cf22e("What's real vs. mocked<br/><small>README.md</small>")
+    forgeops_readme_codeblock_1_5d43b65f("code:bash ( 1. Install dependencies)<br/><small>README.md</small>")
+    forgeops_readme_codeblock_2_d6e0d80b("code:block2 (forgeops/)<br/><small>README.md</small>")
+    forgeops_readme_v2_ideas_out_of_mvp_scope_3d854ad6("v2 ideas (out of MVP scope)<br/><small>README.md</small>")
+    readme_md_eeb98ce0 -->|contains| forgeops_readme_forgeops_c0c63c73
+    forgeops_readme_forgeops_c0c63c73 -->|contains| forgeops_readme_status_90cabbbe
+    forgeops_readme_forgeops_c0c63c73 -->|contains| forgeops_readme_architecture_67a49d62
+    forgeops_readme_forgeops_c0c63c73 -->|contains| forgeops_readme_getting_started_6d7fcabc
+    forgeops_readme_forgeops_c0c63c73 -->|contains| forgeops_readme_project_layout_dfc7216d
+    forgeops_readme_forgeops_c0c63c73 -->|contains| forgeops_readme_what_s_real_vs_mocked_851cf22e
+    forgeops_readme_forgeops_c0c63c73 -->|contains| forgeops_readme_build_roadmap_10_days_e8134557
+    forgeops_readme_forgeops_c0c63c73 -->|contains| forgeops_readme_v2_ideas_out_of_mvp_scope_3d854ad6
+    forgeops_readme_forgeops_c0c63c73 -->|contains| forgeops_readme_license_e2a1a4fd
+    forgeops_readme_getting_started_6d7fcabc -->|contains| forgeops_readme_codeblock_1_5d43b65f
+    forgeops_readme_project_layout_dfc7216d -->|contains| forgeops_readme_codeblock_2_d6e0d80b
+    class forgeops_readme_forgeops_c0c63c73 concept;
+    class readme_md_eeb98ce0 concept;
+    class forgeops_readme_getting_started_6d7fcabc concept;
+    class forgeops_readme_project_layout_dfc7216d concept;
+    class forgeops_readme_status_90cabbbe concept;
+    class forgeops_readme_architecture_67a49d62 concept;
+    class forgeops_readme_build_roadmap_10_days_e8134557 concept;
+    class forgeops_readme_license_e2a1a4fd concept;
+    class forgeops_readme_what_s_real_vs_mocked_851cf22e concept;
+    class forgeops_readme_codeblock_1_5d43b65f concept;
+    class forgeops_readme_codeblock_2_d6e0d80b concept;
+    class forgeops_readme_v2_ideas_out_of_mvp_scope_3d854ad6 concept;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>README.md</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing README.md.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>ForgeOps</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing ForgeOps.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>Status</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing Status.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>Architecture</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing Architecture.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>Getting started</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing Getting started.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>code:bash (# 1. Install dependencies)</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing code:bash (# 1. Install dependencies).</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>Project layout</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing Project layout.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>code:block2 (forgeops/)</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing code:block2 (forgeops/).</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>What&#x27;s real vs. mocked</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing What&#x27;s real vs. mocked.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>Build roadmap (10 days)</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing Build roadmap (10 days).</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>v2 ideas (out of MVP scope)</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing v2 ideas (out of MVP scope).</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>License</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing License.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>README.md</code></td><td>12 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x11. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 10. Deployment Types ====== -->
+<h2 id="deployment-types">10. Deployment Types</h2>
+<p>Deployment Types groups implementation around packages, types, deploymentsts, enumsts, mostly in types/src/deployments.ts, types/src/enums.ts. This section covers 10 nodes and 9 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Deployment Types (10 nodes, 9 edges)
+    subgraph deployment_types_types_src_deployments_ts_d040321a["types/src/deployments.ts"]
+        packages_types_src_deployments_ts_d951f508("deployments.ts")
+        src_deployments_deploymentsummary_9c145dad("DeploymentSummary<br/><small>types/src/deployments.ts</small>")
+        src_deployments_rollbackinput_817e7d4e("RollbackInput<br/><small>types/src/deployments.ts</small>")
+        src_deployments_rolloutsummary_0f5f3d52("RolloutSummary<br/><small>types/src/deployments.ts</small>")
+        src_deployments_triggerrolloutinput_531d06fb("TriggerRolloutInput<br/><small>types/src/deployments.ts</small>")
+        src_deployments_envkindenum_33e09333("envKindEnum<br/><small>types/src/deployments.ts</small>")
+        src_deployments_rollbackschema_b27e0bdf("rollbackSchema<br/><small>types/src/deployments.ts</small>")
+        src_deployments_triggerrolloutschema_566f06e5("triggerRolloutSchema<br/><small>types/src/deployments.ts</small>")
+    end
+    subgraph deployment_types_types_src_enums_ts_b7cf7a59["types/src/enums.ts"]
+        src_enums_healthstatus_0e16c6d5("HealthStatus<br/><small>types/src/enums.ts</small>")
+        src_enums_rolloutstatus_82a89728("RolloutStatus<br/><small>types/src/enums.ts</small>")
+    end
+    packages_types_src_deployments_ts_d951f508 -->|imports| src_enums_healthstatus_0e16c6d5
+    packages_types_src_deployments_ts_d951f508 -->|imports| src_enums_rolloutstatus_82a89728
+    class packages_types_src_deployments_ts_d951f508 module;
+    class src_deployments_deploymentsummary_9c145dad klass;
+    class src_deployments_rollbackinput_817e7d4e klass;
+    class src_deployments_rolloutsummary_0f5f3d52 klass;
+    class src_deployments_triggerrolloutinput_531d06fb klass;
+    class src_deployments_envkindenum_33e09333 function;
+    class src_deployments_rollbackschema_b27e0bdf function;
+    class src_deployments_triggerrolloutschema_566f06e5 function;
+    class src_enums_healthstatus_0e16c6d5 klass;
+    class src_enums_rolloutstatus_82a89728 klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>deployments.ts</code><br><small style="color:var(--muted)">types/src/deployments.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>HealthStatus</code><br><small style="color:var(--muted)">types/src/enums.ts</small><br><code>RolloutStatus</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td>Module file in types/src/deployments.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>envKindEnum</code><br><small style="color:var(--muted)">types/src/deployments.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>envKindEnum node in types/src/deployments.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>triggerRolloutSchema</code><br><small style="color:var(--muted)">types/src/deployments.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>triggerRolloutSchema node in types/src/deployments.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>TriggerRolloutInput</code><br><small style="color:var(--muted)">types/src/deployments.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>TriggerRolloutInput node in types/src/deployments.ts.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>rollbackSchema</code><br><small style="color:var(--muted)">types/src/deployments.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>rollbackSchema node in types/src/deployments.ts.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>RollbackInput</code><br><small style="color:var(--muted)">types/src/deployments.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>RollbackInput node in types/src/deployments.ts.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>DeploymentSummary</code><br><small style="color:var(--muted)">types/src/deployments.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>DeploymentSummary node in types/src/deployments.ts.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>RolloutSummary</code><br><small style="color:var(--muted)">types/src/deployments.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>RolloutSummary node in types/src/deployments.ts.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>RolloutStatus</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>deployments.ts</code><br><small style="color:var(--muted)">types/src/deployments.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>RolloutStatus node in types/src/enums.ts.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>HealthStatus</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>deployments.ts</code><br><small style="color:var(--muted)">types/src/deployments.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>HealthStatus node in types/src/enums.ts.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>types/src/deployments.ts</code></td><td>8 nodes</td></tr>
+<tr><td><code>types/src/enums.ts</code></td><td>2 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x7, imports x2. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 11. Auth Types ====== -->
+<h2 id="auth-types">11. Auth Types</h2>
+<p>Auth Types groups implementation around authts, packages, types, loginschema, mostly in types/src/auth.ts. This section covers 8 nodes and 7 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Auth Types (8 nodes, 7 edges)
+    packages_types_src_auth_ts_870c56c9("auth.ts")
+    src_auth_loginschema_ab3acec5("loginSchema<br/><small>types/src/auth.ts</small>")
+    src_auth_logininput_a7f4c3af("LoginInput<br/><small>types/src/auth.ts</small>")
+    src_auth_signupschema_18f764a5("signupSchema<br/><small>types/src/auth.ts</small>")
+    src_auth_signupinput_a256ed02("SignupInput<br/><small>types/src/auth.ts</small>")
+    src_auth_sessionuser_b6a60119("SessionUser<br/><small>types/src/auth.ts</small>")
+    src_auth_workspacemembershipsummary_8acc7464("WorkspaceMembershipSummary<br/><small>types/src/auth.ts</small>")
+    src_auth_sessionresponse_b632af1c("SessionResponse<br/><small>types/src/auth.ts</small>")
+    packages_types_src_auth_ts_870c56c9 -->|contains| src_auth_loginschema_ab3acec5
+    packages_types_src_auth_ts_870c56c9 -->|contains| src_auth_logininput_a7f4c3af
+    packages_types_src_auth_ts_870c56c9 -->|contains| src_auth_signupschema_18f764a5
+    packages_types_src_auth_ts_870c56c9 -->|contains| src_auth_signupinput_a256ed02
+    packages_types_src_auth_ts_870c56c9 -->|contains| src_auth_sessionuser_b6a60119
+    packages_types_src_auth_ts_870c56c9 -->|contains| src_auth_workspacemembershipsummary_8acc7464
+    packages_types_src_auth_ts_870c56c9 -->|contains| src_auth_sessionresponse_b632af1c
+    class packages_types_src_auth_ts_870c56c9 module;
+    class src_auth_loginschema_ab3acec5 function;
+    class src_auth_logininput_a7f4c3af klass;
+    class src_auth_signupschema_18f764a5 function;
+    class src_auth_signupinput_a256ed02 klass;
+    class src_auth_sessionuser_b6a60119 klass;
+    class src_auth_workspacemembershipsummary_8acc7464 klass;
+    class src_auth_sessionresponse_b632af1c klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>auth.ts</code><br><small style="color:var(--muted)">types/src/auth.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in types/src/auth.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>loginSchema</code><br><small style="color:var(--muted)">types/src/auth.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>loginSchema node in types/src/auth.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>LoginInput</code><br><small style="color:var(--muted)">types/src/auth.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>LoginInput node in types/src/auth.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>signupSchema</code><br><small style="color:var(--muted)">types/src/auth.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>signupSchema node in types/src/auth.ts.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>SignupInput</code><br><small style="color:var(--muted)">types/src/auth.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>SignupInput node in types/src/auth.ts.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>SessionUser</code><br><small style="color:var(--muted)">types/src/auth.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>SessionUser node in types/src/auth.ts.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>WorkspaceMembershipSummary</code><br><small style="color:var(--muted)">types/src/auth.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>WorkspaceMembershipSummary node in types/src/auth.ts.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>SessionResponse</code><br><small style="color:var(--muted)">types/src/auth.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>SessionResponse node in types/src/auth.ts.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>types/src/auth.ts</code></td><td>8 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x7. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 12. Workspace Types ====== -->
+<h2 id="workspace-types">12. Workspace Types</h2>
+<p>Workspace Types groups implementation around workspacests, packages, types, createworkspaceschema, mostly in types/src/workspaces.ts, types/src/enums.ts. This section covers 8 nodes and 7 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Workspace Types (8 nodes, 7 edges)
+    subgraph workspace_types_types_src_workspaces_ts_64ab3673["types/src/workspaces.ts"]
+        packages_types_src_workspaces_ts_65c92a5b("workspaces.ts")
+        src_workspaces_createworkspaceinput_f393be07("CreateWorkspaceInput<br/><small>types/src/workspaces.ts</small>")
+        src_workspaces_invitememberinput_48c48aae("InviteMemberInput<br/><small>types/src/workspaces.ts</small>")
+        src_workspaces_updatememberroleinput_070aa590("UpdateMemberRoleInput<br/><small>types/src/workspaces.ts</small>")
+        src_workspaces_createworkspaceschema_7157b63b("createWorkspaceSchema<br/><small>types/src/workspaces.ts</small>")
+        src_workspaces_invitememberschema_5c1b73ca("inviteMemberSchema<br/><small>types/src/workspaces.ts</small>")
+        src_workspaces_updatememberroleschema_b48c9006("updateMemberRoleSchema<br/><small>types/src/workspaces.ts</small>")
+    end
+    src_enums_role_aa9eed60("Role<br/><small>types/src/enums.ts</small>")
+    packages_types_src_workspaces_ts_65c92a5b -->|imports| src_enums_role_aa9eed60
+    class packages_types_src_workspaces_ts_65c92a5b module;
+    class src_workspaces_createworkspaceinput_f393be07 klass;
+    class src_workspaces_invitememberinput_48c48aae klass;
+    class src_workspaces_updatememberroleinput_070aa590 klass;
+    class src_workspaces_createworkspaceschema_7157b63b function;
+    class src_workspaces_invitememberschema_5c1b73ca function;
+    class src_workspaces_updatememberroleschema_b48c9006 function;
+    class src_enums_role_aa9eed60 klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>workspaces.ts</code><br><small style="color:var(--muted)">types/src/workspaces.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>Role</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td>Module file in types/src/workspaces.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>createWorkspaceSchema</code><br><small style="color:var(--muted)">types/src/workspaces.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>createWorkspaceSchema node in types/src/workspaces.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>CreateWorkspaceInput</code><br><small style="color:var(--muted)">types/src/workspaces.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>CreateWorkspaceInput node in types/src/workspaces.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>inviteMemberSchema</code><br><small style="color:var(--muted)">types/src/workspaces.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>inviteMemberSchema node in types/src/workspaces.ts.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>InviteMemberInput</code><br><small style="color:var(--muted)">types/src/workspaces.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>InviteMemberInput node in types/src/workspaces.ts.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>updateMemberRoleSchema</code><br><small style="color:var(--muted)">types/src/workspaces.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>updateMemberRoleSchema node in types/src/workspaces.ts.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>UpdateMemberRoleInput</code><br><small style="color:var(--muted)">types/src/workspaces.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>UpdateMemberRoleInput node in types/src/workspaces.ts.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>Role</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>workspaces.ts</code><br><small style="color:var(--muted)">types/src/workspaces.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>Role node in types/src/enums.ts.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>types/src/workspaces.ts</code></td><td>7 nodes</td></tr>
+<tr><td><code>types/src/enums.ts</code></td><td>1 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x6, imports x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 13. Cost Types ====== -->
+<h2 id="cost-types">13. Cost Types</h2>
+<p>Cost Types groups implementation around costts, packages, types, costinputschema, mostly in types/src/cost.ts, types/src/enums.ts. This section covers 7 nodes and 6 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Cost Types (7 nodes, 6 edges)
+    subgraph cost_types_types_src_cost_ts_8db994e6["types/src/cost.ts"]
+        packages_types_src_cost_ts_6a09b5c4("cost.ts")
+        src_cost_costbreakdown_3b2c16e8("CostBreakdown<br/><small>types/src/cost.ts</small>")
+        src_cost_costinput_7dadeb77("CostInput<br/><small>types/src/cost.ts</small>")
+        src_cost_costsuggestion_3ab8b279("CostSuggestion<br/><small>types/src/cost.ts</small>")
+        src_cost_costwarning_2db0ae14("CostWarning<br/><small>types/src/cost.ts</small>")
+        src_cost_costinputschema_5b2918e7("costInputSchema<br/><small>types/src/cost.ts</small>")
+    end
+    src_enums_envkind_643cfeae("EnvKind<br/><small>types/src/enums.ts</small>")
+    packages_types_src_cost_ts_6a09b5c4 -->|imports| src_enums_envkind_643cfeae
+    class packages_types_src_cost_ts_6a09b5c4 module;
+    class src_cost_costbreakdown_3b2c16e8 klass;
+    class src_cost_costinput_7dadeb77 klass;
+    class src_cost_costsuggestion_3ab8b279 klass;
+    class src_cost_costwarning_2db0ae14 klass;
+    class src_cost_costinputschema_5b2918e7 function;
+    class src_enums_envkind_643cfeae klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>cost.ts</code><br><small style="color:var(--muted)">types/src/cost.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>EnvKind</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td>Module file in types/src/cost.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>costInputSchema</code><br><small style="color:var(--muted)">types/src/cost.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>costInputSchema node in types/src/cost.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>CostInput</code><br><small style="color:var(--muted)">types/src/cost.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>CostInput node in types/src/cost.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>CostWarning</code><br><small style="color:var(--muted)">types/src/cost.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>CostWarning node in types/src/cost.ts.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>CostSuggestion</code><br><small style="color:var(--muted)">types/src/cost.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>CostSuggestion node in types/src/cost.ts.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>CostBreakdown</code><br><small style="color:var(--muted)">types/src/cost.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>CostBreakdown node in types/src/cost.ts.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>EnvKind</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>cost.ts</code><br><small style="color:var(--muted)">types/src/cost.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>EnvKind node in types/src/enums.ts.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>types/src/cost.ts</code></td><td>6 nodes</td></tr>
+<tr><td><code>types/src/enums.ts</code></td><td>1 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x5, imports x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 14. Template Registry ====== -->
+<h2 id="template-registry">14. Template Registry</h2>
+<p>Template Registry groups implementation around packages, templates, registryts, indexts, mostly in templates/src/registry.ts, types/src/enums.ts, templates/src/index.ts. This section covers 6 nodes and 5 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Template Registry (6 nodes, 5 edges)
+    subgraph template_registry_templates_src_registry_ts_ff314fbf["templates/src/registry.ts"]
+        packages_templates_src_registry_ts_46f10fef("registry.ts")
+        src_registry_templatedefinition_3a1df6b4("TemplateDefinition<br/><small>templates/src/registry.ts</small>")
+        src_registry_gettemplate_898e58bd("getTemplate()<br/><small>templates/src/registry.ts</small>")
+        src_registry_templateregistry_1ba3809d("templateRegistry<br/><small>templates/src/registry.ts</small>")
+    end
+    packages_templates_src_index_ts_f68c8880("index.ts")
+    src_enums_runtime_fc950319("Runtime<br/><small>types/src/enums.ts</small>")
+    src_enums_runtime_fc950319 -->|imports| packages_templates_src_registry_ts_46f10fef
+    class packages_templates_src_registry_ts_46f10fef module;
+    class src_registry_templatedefinition_3a1df6b4 klass;
+    class src_registry_gettemplate_898e58bd function;
+    class src_registry_templateregistry_1ba3809d function;
+    class packages_templates_src_index_ts_f68c8880 module;
+    class src_enums_runtime_fc950319 klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>Runtime</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>registry.ts</code><br><small style="color:var(--muted)">templates/src/registry.ts</small></td>
+  <td>Runtime node in types/src/enums.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>index.ts</code><br><small style="color:var(--muted)">templates/src/index.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in templates/src/index.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>registry.ts</code><br><small style="color:var(--muted)">templates/src/registry.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td><code>Runtime</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>Module file in templates/src/registry.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>TemplateDefinition</code><br><small style="color:var(--muted)">templates/src/registry.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>TemplateDefinition node in templates/src/registry.ts.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>templateRegistry</code><br><small style="color:var(--muted)">templates/src/registry.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>templateRegistry node in templates/src/registry.ts.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>getTemplate()</code><br><small style="color:var(--muted)">templates/src/registry.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>getTemplate() node in templates/src/registry.ts.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>templates/src/registry.ts</code></td><td>4 nodes</td></tr>
+<tr><td><code>templates/src/index.ts</code></td><td>1 nodes</td></tr>
+<tr><td><code>types/src/enums.ts</code></td><td>1 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x3, imports x1, re exports x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 15. Artifact Types ====== -->
+<h2 id="artifact-types">15. Artifact Types</h2>
+<p>Artifact Types groups implementation around artifactsts, packages, types, artifactkindenum, mostly in types/src/artifacts.ts, types/src/enums.ts. This section covers 6 nodes and 5 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Artifact Types (6 nodes, 5 edges)
+    subgraph artifact_types_types_src_artifacts_ts_70107571["types/src/artifacts.ts"]
+        packages_types_src_artifacts_ts_b8315589("artifacts.ts")
+        src_artifacts_artifactbundle_b247aa7d("ArtifactBundle<br/><small>types/src/artifacts.ts</small>")
+        src_artifacts_artifactdetail_209c05b0("ArtifactDetail<br/><small>types/src/artifacts.ts</small>")
+        src_artifacts_artifactsummary_d8e9c494("ArtifactSummary<br/><small>types/src/artifacts.ts</small>")
+        src_artifacts_artifactkindenum_c2a9f48c("artifactKindEnum<br/><small>types/src/artifacts.ts</small>")
+    end
+    src_enums_artifactkind_f6309a48("ArtifactKind<br/><small>types/src/enums.ts</small>")
+    packages_types_src_artifacts_ts_b8315589 -->|imports| src_enums_artifactkind_f6309a48
+    class packages_types_src_artifacts_ts_b8315589 module;
+    class src_artifacts_artifactbundle_b247aa7d klass;
+    class src_artifacts_artifactdetail_209c05b0 klass;
+    class src_artifacts_artifactsummary_d8e9c494 klass;
+    class src_artifacts_artifactkindenum_c2a9f48c function;
+    class src_enums_artifactkind_f6309a48 klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>artifacts.ts</code><br><small style="color:var(--muted)">types/src/artifacts.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ArtifactKind</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td>Module file in types/src/artifacts.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>artifactKindEnum</code><br><small style="color:var(--muted)">types/src/artifacts.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>artifactKindEnum node in types/src/artifacts.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>ArtifactSummary</code><br><small style="color:var(--muted)">types/src/artifacts.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>ArtifactSummary node in types/src/artifacts.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>ArtifactDetail</code><br><small style="color:var(--muted)">types/src/artifacts.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>ArtifactDetail node in types/src/artifacts.ts.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>ArtifactBundle</code><br><small style="color:var(--muted)">types/src/artifacts.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>ArtifactBundle node in types/src/artifacts.ts.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>ArtifactKind</code><br><small style="color:var(--muted)">types/src/enums.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td><code>artifacts.ts</code><br><small style="color:var(--muted)">types/src/artifacts.ts</small></td>
+  <td>No direct outbound edge</td>
+  <td>ArtifactKind node in types/src/enums.ts.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>types/src/artifacts.ts</code></td><td>5 nodes</td></tr>
+<tr><td><code>types/src/enums.ts</code></td><td>1 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x4, imports x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 16. Other ====== -->
+<h2 id="other">16. Other</h2>
+<p>Other groups implementation around apps, web, packages, readmemd, mostly in src/app/layout.tsx, types/src/feature-flags.ts, templates/templates/README.md. This section covers 28 nodes and 14 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Other (28 nodes, 14 edges)
+    subgraph other_src_app_layout_tsx_399704fb["src/app/layout.tsx"]
+        apps_web_src_app_layout_tsx_36e6c17c("layout.tsx")
+        app_layout_inter_7446aabf("inter<br/><small>src/app/layout.tsx</small>")
+        app_layout_metadata_57b95e99("metadata<br/><small>src/app/layout.tsx</small>")
+        app_layout_rootlayout_bcc6c561("RootLayout()<br/><small>src/app/layout.tsx</small>")
+    end
+    subgraph other_src_lib_utils_ts_cce31e30["src/lib/utils.ts"]
+        apps_web_src_lib_utils_ts_870dda42("utils.ts")
+        packages_ui_src_lib_utils_ts_a967df86("utils.ts")
+        apps_web_src_lib_utils_ts_lib_utils_cn_416a8835("cn()<br/><small>src/lib/utils.ts</small>")
+    end
+    subgraph other_types_src_feature_flags_ts_8d371233["types/src/feature-flags.ts"]
+        packages_types_src_feature_flags_ts_698332bc("feature-flags.ts")
+        src_feature_flags_featureflags_54e537d7("FeatureFlags<br/><small>types/src/feature-flags.ts</small>")
+        src_feature_flags_default_feature_flags_a22bf4bf("DEFAULT_FEATURE_FLAGS<br/><small>types/src/feature-flags.ts</small>")
+    end
+    subgraph other_apps_web_next_config_ts_0769bbae["apps/web/next.config.ts"]
+        apps_web_next_config_ts_68aa2dbe("next.config.ts")
+        web_next_config_nextconfig_5a6dbeeb("nextConfig<br/><small>apps/web/next.config.ts</small>")
+    end
+    subgraph other_apps_web_postcss_config_mjs_2525c558["apps/web/postcss.config.mjs"]
+        apps_web_postcss_config_mjs_da504c03("postcss.config.mjs")
+        web_postcss_config_config_80619426("config<br/><small>apps/web/postcss.config.mjs</small>")
+    end
+    subgraph other_src_app_page_tsx_da3aede8["src/app/page.tsx"]
+        apps_web_src_app_page_tsx_d1d50909("page.tsx")
+        app_page_homepage_3744d325("HomePage()<br/><small>src/app/page.tsx</small>")
+    end
+    packages_types_src_index_ts_704eead8("index.ts")
+    packages_ui_src_index_ts_0fb690f8("index.ts")
+    packages_types_src_index_ts_704eead8 -->|re exports| packages_types_src_feature_flags_ts_698332bc
+    packages_ui_src_index_ts_0fb690f8 -->|re exports| packages_ui_src_lib_utils_ts_a967df86
+    apps_web_postcss_config_mjs_da504c03 -->|contains| web_postcss_config_config_80619426
+    apps_web_next_config_ts_68aa2dbe -->|contains| web_next_config_nextconfig_5a6dbeeb
+    apps_web_src_lib_utils_ts_870dda42 -->|contains| apps_web_src_lib_utils_ts_lib_utils_cn_416a8835
+    apps_web_src_app_layout_tsx_36e6c17c -->|contains| app_layout_inter_7446aabf
+    apps_web_src_app_layout_tsx_36e6c17c -->|contains| app_layout_metadata_57b95e99
+    apps_web_src_app_layout_tsx_36e6c17c -->|contains| app_layout_rootlayout_bcc6c561
+    apps_web_src_app_page_tsx_d1d50909 -->|contains| app_page_homepage_3744d325
+    packages_types_src_feature_flags_ts_698332bc -->|contains| src_feature_flags_featureflags_54e537d7
+    packages_types_src_feature_flags_ts_698332bc -->|contains| src_feature_flags_default_feature_flags_a22bf4bf
+    %% Omitted for readability: 10 nodes, 0 edges
+    class apps_web_src_app_layout_tsx_36e6c17c ui;
+    class app_layout_inter_7446aabf ui;
+    class app_layout_metadata_57b95e99 ui;
+    class app_layout_rootlayout_bcc6c561 ui;
+    class apps_web_src_lib_utils_ts_870dda42 module;
+    class packages_ui_src_lib_utils_ts_a967df86 module;
+    class apps_web_src_lib_utils_ts_lib_utils_cn_416a8835 function;
+    class packages_types_src_feature_flags_ts_698332bc module;
+    class src_feature_flags_featureflags_54e537d7 klass;
+    class src_feature_flags_default_feature_flags_a22bf4bf klass;
+    class apps_web_next_config_ts_68aa2dbe module;
+    class web_next_config_nextconfig_5a6dbeeb function;
+    class apps_web_postcss_config_mjs_da504c03 function;
+    class web_postcss_config_config_80619426 function;
+    class apps_web_src_app_page_tsx_d1d50909 ui;
+    class app_page_homepage_3744d325 ui;
+    class packages_types_src_index_ts_704eead8 module;
+    class packages_ui_src_index_ts_0fb690f8 module;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>index.ts</code><br><small style="color:var(--muted)">types/src/index.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in types/src/index.ts.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>feature-flags.ts</code><br><small style="color:var(--muted)">types/src/feature-flags.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in types/src/feature-flags.ts.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>FeatureFlags</code><br><small style="color:var(--muted)">types/src/feature-flags.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>FeatureFlags node in types/src/feature-flags.ts.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>DEFAULT_FEATURE_FLAGS</code><br><small style="color:var(--muted)">types/src/feature-flags.ts</small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>DEFAULT_FEATURE_FLAGS node in types/src/feature-flags.ts.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>layout.tsx</code><br><small style="color:var(--muted)">src/app/layout.tsx</small></td>
+  <td><span class="tag tag-hook">UI</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in src/app/layout.tsx.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>inter</code><br><small style="color:var(--muted)">src/app/layout.tsx</small></td>
+  <td><span class="tag tag-hook">UI</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>inter node in src/app/layout.tsx.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>metadata</code><br><small style="color:var(--muted)">src/app/layout.tsx</small></td>
+  <td><span class="tag tag-hook">UI</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>metadata node in src/app/layout.tsx.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>RootLayout()</code><br><small style="color:var(--muted)">src/app/layout.tsx</small></td>
+  <td><span class="tag tag-hook">UI</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>RootLayout() node in src/app/layout.tsx.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>index.ts</code><br><small style="color:var(--muted)">ui/src/index.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in ui/src/index.ts.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>utils.ts</code><br><small style="color:var(--muted)">src/lib/utils.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in src/lib/utils.ts.</td>
+</tr>
+<tr>
+  <td>11</td>
+  <td><code>cn()</code><br><small style="color:var(--muted)">src/lib/utils.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>cn() node in src/lib/utils.ts.</td>
+</tr>
+<tr>
+  <td>12</td>
+  <td><code>README.md</code><br><small style="color:var(--muted)">templates/templates/README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing README.md.</td>
+</tr>
+<tr>
+  <td>13</td>
+  <td><code>Template bodies</code><br><small style="color:var(--muted)">templates/templates/README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing Template bodies.</td>
+</tr>
+<tr>
+  <td>14</td>
+  <td><code>code:block1 (templates/&lt;key&gt;/)</code><br><small style="color:var(--muted)">templates/templates/README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Documentation node describing code:block1 (templates/&lt;key&gt;/).</td>
+</tr>
+<tr>
+  <td>15</td>
+  <td><code>page.tsx</code><br><small style="color:var(--muted)">src/app/page.tsx</small></td>
+  <td><span class="tag tag-hook">UI</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in src/app/page.tsx.</td>
+</tr>
+<tr>
+  <td>16</td>
+  <td><code>HomePage()</code><br><small style="color:var(--muted)">src/app/page.tsx</small></td>
+  <td><span class="tag tag-hook">UI</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Organizes documentation pages, navigation, or content lookup.</td>
+</tr>
+<tr>
+  <td>17</td>
+  <td><code>next.config.ts</code><br><small style="color:var(--muted)">apps/web/next.config.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in apps/web/next.config.ts.</td>
+</tr>
+<tr>
+  <td>18</td>
+  <td><code>nextConfig</code><br><small style="color:var(--muted)">apps/web/next.config.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Reads, resolves, or persists project configuration.</td>
+</tr>
+<tr>
+  <td>19</td>
+  <td><code>utils.ts</code><br><small style="color:var(--muted)">src/lib/utils.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in src/lib/utils.ts.</td>
+</tr>
+<tr>
+  <td>20</td>
+  <td><code>cn()</code><br><small style="color:var(--muted)">src/lib/utils.ts</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>cn() node in src/lib/utils.ts.</td>
+</tr>
+<tr>
+  <td>21</td>
+  <td><code>postcss.config.mjs</code><br><small style="color:var(--muted)">apps/web/postcss.config.mjs</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Reads, resolves, or persists project configuration.</td>
+</tr>
+<tr>
+  <td>22</td>
+  <td><code>config</code><br><small style="color:var(--muted)">apps/web/postcss.config.mjs</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Reads, resolves, or persists project configuration.</td>
+</tr>
+<tr>
+  <td>23</td>
+  <td><code>prettier.config.mjs</code><br><small style="color:var(--muted)">prettier.config.mjs</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Reads, resolves, or persists project configuration.</td>
+</tr>
+<tr>
+  <td>24</td>
+  <td><code>next-env.d.ts</code><br><small style="color:var(--muted)">apps/web/next-env.d.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in apps/web/next-env.d.ts.</td>
+</tr>
+<tr>
+  <td>25</td>
+  <td><code>kubernetes-rollout.driver.stub.ts</code><br><small style="color:var(--muted)">providers/rollout/kubernetes-rollout.driver.stub.ts</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in providers/rollout/kubernetes-rollout.driver.stub.ts.</td>
+</tr>
+<tr>
+  <td>26</td>
+  <td><code>Cost Estimation</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Cost Estimation.</td>
+</tr>
+<tr>
+  <td>27</td>
+  <td><code>Auth and RBAC</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Auth and RBAC.</td>
+</tr>
+<tr>
+  <td>28</td>
+  <td><code>Audit Trail</code><br><small style="color:var(--muted)">README.md</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Audit Trail.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>src/app/layout.tsx</code></td><td>4 nodes</td></tr>
+<tr><td><code>README.md</code></td><td>3 nodes</td></tr>
+<tr><td><code>templates/templates/README.md</code></td><td>3 nodes</td></tr>
+<tr><td><code>types/src/feature-flags.ts</code></td><td>3 nodes</td></tr>
+<tr><td><code>apps/web/next.config.ts</code></td><td>2 nodes</td></tr>
+<tr><td><code>apps/web/postcss.config.mjs</code></td><td>2 nodes</td></tr>
+<tr><td><code>src/app/page.tsx</code></td><td>2 nodes</td></tr>
+<tr><td><code>src/lib/utils.ts</code></td><td>2 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x12, re exports x2. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<h2 id="hyperedges">Group Relationships (Hyperedges)</h2>
+<div class="grid">
+
+  <div class="card">
+    <h4>Provider Adapter Pattern</h4>
+    <p><code>implement</code> — 7 participants</p>
+    <ul>
+      <li><code>providers_ports_adapters</code></li>
+      <li><code>providers_rollout</code></li>
+      <li><code>providers_security</code></li>
+      <li><code>providers_metrics</code></li>
+      <li><code>providers_logs</code></li>
+      <li>... and 2 more</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Infrastructure Services</h4>
+    <p><code>participate_in</code> — 5 participants</p>
+    <ul>
+      <li><code>infra_docker_compose</code></li>
+      <li><code>infra_postgres</code></li>
+      <li><code>infra_redis</code></li>
+      <li><code>infra_mailhog</code></li>
+      <li><code>readme_backend_stack</code></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Template Generation Pipeline</h4>
+    <p><code>participate_in</code> — 4 participants</p>
+    <ul>
+      <li><code>templates_handlebars</code></li>
+      <li><code>templates_context_schema</code></li>
+      <li><code>readme_template_generation</code></li>
+      <li><code>providers_artifact_publisher</code></li>
+    </ul>
+  </div>
+</div>
+<hr>
+<h2 id="stats">Project Statistics</h2>
+
+<div class="grid">
+  <div class="card">
+    <h4>Graph</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><td>Nodes</td><td>852</td></tr>
+      <tr><td>Edges</td><td>1015</td></tr>
+      <tr><td>Hyperedges</td><td>3</td></tr>
+      <tr><td>Communities</td><td>77</td></tr>
+      <tr><td>Documented Sections</td><td>15</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Edge Confidence</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><td>EXTRACTED</td><td>1006</td></tr>
+      <tr><td>INFERRED</td><td>9</td></tr>
+      <tr><td>AMBIGUOUS</td><td>0</td></tr>
+    </table>
+  </div>
+</div>
+
+<div style="text-align:center; padding:40px 0; color: var(--muted); font-size:0.9rem;">
+  <p>ForgeOps — Architecture Documentation</p>
+  <p>Generated: 2026-05-23 16:45 UTC · graphify callflow-html</p>
+</div>
+
+</div><!-- .container -->
+
+<script>
+(function () {
+  const mermaidConfig = {
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose',
+    flowchart: { htmlLabels: true, useMaxWidth: true },
+    themeVariables: {
+      primaryColor: '#1e293b',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#38bdf8',
+      secondaryColor: '#0f172a',
+      tertiaryColor: '#334155',
+      lineColor: '#64748b',
+      textColor: '#e2e8f0',
+    }
+  };
+
+  mermaid.initialize(mermaidConfig);
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function enhanceMermaidDiagrams() {
+    document.querySelectorAll('.mermaid').forEach((container) => {
+      if (container.dataset.zoomReady === 'true') return;
+      const svg = container.querySelector('svg');
+      if (!svg) return;
+
+      container.dataset.zoomReady = 'true';
+      container.classList.add('is-enhanced');
+
+      const viewport = document.createElement('div');
+      viewport.className = 'mermaid-viewport';
+      svg.parentNode.insertBefore(viewport, svg);
+      viewport.appendChild(svg);
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'mermaid-toolbar';
+      toolbar.innerHTML = [
+        '<button type="button" data-action="zoom-out" title="Zoom out">-</button>',
+        '<span class="zoom-level" data-role="level">100%</span>',
+        '<button type="button" data-action="zoom-in" title="Zoom in">+</button>',
+        '<button type="button" data-action="fit" title="Fit width">Fit</button>',
+        '<button type="button" data-action="reset" title="Reset view">Reset</button>'
+      ].join('');
+      container.insertBefore(toolbar, viewport);
+
+      const state = { scale: 1, x: 0, y: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 };
+      const level = toolbar.querySelector('[data-role="level"]');
+
+      function applyTransform() {
+        svg.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+        level.textContent = `${Math.round(state.scale * 100)}%`;
+      }
+
+      function zoomBy(delta) {
+        state.scale = clamp(state.scale + delta, 0.25, 3);
+        applyTransform();
+      }
+
+      function reset() {
+        state.scale = 1;
+        state.x = 0;
+        state.y = 0;
+        applyTransform();
+      }
+
+      function fitWidth() {
+        const rawWidth = svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width
+          ? svg.viewBox.baseVal.width
+          : svg.getBoundingClientRect().width / state.scale;
+        if (!rawWidth) {
+          reset();
+          return;
+        }
+        state.scale = clamp((viewport.clientWidth - 48) / rawWidth, 0.25, 1.4);
+        state.x = 0;
+        state.y = 0;
+        applyTransform();
+      }
+
+      toolbar.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const action = button.dataset.action;
+        if (action === 'zoom-in') zoomBy(0.15);
+        if (action === 'zoom-out') zoomBy(-0.15);
+        if (action === 'fit') fitWidth();
+        if (action === 'reset') reset();
+      });
+
+      viewport.addEventListener('wheel', (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        zoomBy(event.deltaY < 0 ? 0.1 : -0.1);
+      }, { passive: false });
+
+      viewport.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        state.dragging = true;
+        state.startX = event.clientX;
+        state.startY = event.clientY;
+        state.originX = state.x;
+        state.originY = state.y;
+        viewport.classList.add('is-dragging');
+        viewport.setPointerCapture(event.pointerId);
+      });
+
+      viewport.addEventListener('pointermove', (event) => {
+        if (!state.dragging) return;
+        state.x = state.originX + event.clientX - state.startX;
+        state.y = state.originY + event.clientY - state.startY;
+        applyTransform();
+      });
+
+      function endDrag(event) {
+        if (!state.dragging) return;
+        state.dragging = false;
+        viewport.classList.remove('is-dragging');
+        if (viewport.hasPointerCapture(event.pointerId)) {
+          viewport.releasePointerCapture(event.pointerId);
+        }
+      }
+
+      viewport.addEventListener('pointerup', endDrag);
+      viewport.addEventListener('pointercancel', endDrag);
+      applyTransform();
+    });
+  }
+
+  function renderMermaid() {
+    const result = mermaid.run
+      ? mermaid.run({ querySelector: '.mermaid' })
+      : Promise.resolve();
+    Promise.resolve(result)
+      .then(enhanceMermaidDiagrams)
+      .catch((error) => {
+        console.error('Mermaid render failed:', error);
+        enhanceMermaidDiagrams();
+      });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderMermaid);
+  } else {
+    renderMermaid();
+  }
+})();
+</script>
+
+</body>
+</html>

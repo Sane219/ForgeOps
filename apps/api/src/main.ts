@@ -19,6 +19,7 @@ async function bootstrap() {
   app.use(helmet());
   app.use(cookieParser());
   app.useGlobalFilters(new AllExceptionsFilter());
+
   app.enableCors({
     origin: config.get<string>('CORS_ORIGIN')?.split(',') ?? true,
     credentials: true,

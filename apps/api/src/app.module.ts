@@ -1,9 +1,17 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import configuration from './config/configuration';
 import { validateEnv } from './config/env.schema';
 import { PrismaModule } from './prisma/prisma.module';
+
+// Guards & interceptors
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { WorkspaceGuard } from './common/guards/workspace.guard';
+import { RolesGuard } from './common/guards/roles.guard';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 // Pluggable provider modules (mock ↔ real seam)
 import { RolloutProviderModule } from './providers/rollout/rollout.module';
@@ -13,10 +21,13 @@ import { LogsProviderModule } from './providers/logs/logs.module';
 import { ArtifactPublisherModule } from './providers/artifact-publisher/artifact-publisher.module';
 import { AiProviderModule } from './providers/ai/ai-provider.module';
 
-// Domain modules — implementations land Days 2–9
+// Domain modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { HealthModule } from './modules/health/health.module';
+import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
 import { TemplatesModule } from './modules/templates/templates.module';
 import { ServicesModule } from './modules/services/services.module';
 import { GeneratorModule } from './modules/generator/generator.module';
@@ -24,11 +35,8 @@ import { DeploymentsModule } from './modules/deployments/deployments.module';
 import { SecurityModule } from './modules/security/security.module';
 import { CostModule } from './modules/cost/cost.module';
 import { ObservabilityModule } from './modules/observability/observability.module';
-import { AuditModule } from './modules/audit/audit.module';
 import { AiModule } from './modules/ai/ai.module';
 import { QueuesModule } from './modules/queues/queues.module';
-import { HealthModule } from './modules/health/health.module';
-import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
 
 @Module({
   imports: [
@@ -37,18 +45,21 @@ import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module
       load: [configuration],
       validate: validateEnv,
     }),
-    LoggerModule.forRoot({
-      pinoHttp: {
-        autoLogging: true,
-        transport:
-          process.env.NODE_ENV !== 'production'
-            ? { target: 'pino-pretty', options: { singleLine: true } }
-            : undefined,
-      },
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        pinoHttp: {
+          level: config.get('nodeEnv') === 'production' ? 'info' : 'debug',
+          transport:
+            config.get('nodeEnv') !== 'production'
+              ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
+              : undefined,
+        },
+      }),
     }),
     PrismaModule,
 
-    // Provider registry — see apps/api/src/providers/README.md
+    // Provider modules
     RolloutProviderModule,
     SecurityProviderModule,
     MetricsProviderModule,
@@ -56,12 +67,13 @@ import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module
     ArtifactPublisherModule,
     AiProviderModule,
 
-    // Domain
-    HealthModule,
-    FeatureFlagsModule,
+    // Domain modules — Day 2 deliverables
     AuthModule,
     UsersModule,
     WorkspacesModule,
+    AuditModule,
+
+    // Other domain modules (stubs for now)
     TemplatesModule,
     ServicesModule,
     GeneratorModule,
@@ -69,9 +81,19 @@ import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module
     SecurityModule,
     CostModule,
     ObservabilityModule,
-    AuditModule,
     AiModule,
     QueuesModule,
+
+    // Utility modules
+    HealthModule,
+    FeatureFlagsModule,
+  ],
+  providers: [
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: WorkspaceGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })
 export class AppModule {}

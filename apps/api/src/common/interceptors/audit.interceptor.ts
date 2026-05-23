@@ -8,24 +8,35 @@ import {
 import { Reflector } from '@nestjs/core';
 import { tap, type Observable } from 'rxjs';
 import { AUDIT_KEY } from '../decorators/audit.decorator';
+import { AuditService } from '../../modules/audit/audit.service';
+import type { ForgeOpsRequest } from '../types/request';
+import type { AuditAction } from '@prisma/client';
 
-/**
- * Reads `@Audit(action)` metadata from the handler and writes an audit
- * event on successful completion. Full implementation lands Day 2 once
- * the AuditService exists.
- */
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditInterceptor.name);
 
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly auditService: AuditService,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const action = this.reflector.get<string | undefined>(AUDIT_KEY, context.getHandler());
+    const action = this.reflector.get<AuditAction | undefined>(AUDIT_KEY, context.getHandler());
+    if (!action) return next.handle();
+
+    const req = context.switchToHttp().getRequest<ForgeOpsRequest>();
+
     return next.handle().pipe(
       tap(() => {
-        if (action) {
-          this.logger.debug(`[audit] ${action} (write deferred to Day 2 AuditService)`);
+        if (req.workspace?.id) {
+          this.auditService.record({
+            workspaceId: req.workspace.id,
+            actorId: req.user?.id,
+            action,
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'],
+          }).catch((err) => this.logger.error('Audit write failed', err));
         }
       }),
     );
