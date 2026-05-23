@@ -1,0 +1,47 @@
+name: forgeops
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: forgeops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-forgeops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-forgeops_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-forgeops}
+    ports:
+      - '5432:5432'
+    volumes:
+      - forgeops-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-forgeops} -d ${POSTGRES_DB:-forgeops}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: forgeops-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - forgeops-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: forgeops-mailhog
+    restart: unless-stopped
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # Web UI
+
+volumes:
+  forgeops-postgres-data:
+  forgeops-redis-data:

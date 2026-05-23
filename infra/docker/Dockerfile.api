@@ -1,0 +1,36 @@
+# syntax=docker/dockerfile:1.7
+# Multi-stage build for @forgeops/api.
+# Full optimization (turbo prune, distroless runtime) lands Day 10.
+
+# ─── deps ──────────────────────────────────────────────────────
+FROM node:22-bookworm-slim AS deps
+WORKDIR /workspace
+RUN corepack enable
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+COPY apps/api/package.json apps/api/
+COPY packages/types/package.json packages/types/
+COPY packages/templates/package.json packages/templates/
+COPY packages/config-typescript/package.json packages/config-typescript/
+COPY packages/config-eslint/package.json packages/config-eslint/
+RUN pnpm install --frozen-lockfile
+
+# ─── build ─────────────────────────────────────────────────────
+FROM node:22-bookworm-slim AS build
+WORKDIR /workspace
+RUN corepack enable
+COPY --from=deps /workspace/node_modules ./node_modules
+COPY . .
+RUN pnpm --filter @forgeops/api prisma:generate \
+ && pnpm --filter @forgeops/api build
+
+# ─── runtime ───────────────────────────────────────────────────
+FROM node:22-bookworm-slim AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build /workspace/apps/api/dist ./dist
+COPY --from=build /workspace/apps/api/package.json ./package.json
+COPY --from=build /workspace/apps/api/prisma ./prisma
+COPY --from=build /workspace/node_modules ./node_modules
+USER node
+EXPOSE 4000
+CMD ["node", "dist/main.js"]

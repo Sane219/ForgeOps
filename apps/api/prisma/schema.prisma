@@ -1,0 +1,495 @@
+// ForgeOps — Prisma schema
+// Versioned domain model. See docs/architecture.md for the ER diagram.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums (kept in sync with packages/types/src/enums.ts)
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  DEVELOPER
+  VIEWER
+}
+
+enum Runtime {
+  NEXTJS
+  NESTJS
+  FASTAPI
+  PYTHON_WORKER
+  GO_SERVICE
+  STATIC
+}
+
+enum EnvKind {
+  DEV
+  STAGING
+  PROD
+}
+
+enum RolloutStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCEEDED
+  FAILED
+  ROLLED_BACK
+}
+
+enum HealthStatus {
+  HEALTHY
+  DEGRADED
+  UNHEALTHY
+  UNKNOWN
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum FindingKind {
+  CONTAINER
+  SECRET
+  DEPENDENCY
+  LINT
+  POLICY
+}
+
+enum ArtifactKind {
+  DOCKERFILE
+  K8S_MANIFEST
+  HELM_VALUES
+  CI_PIPELINE
+  ARGO_APP
+}
+
+enum IncidentStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum AuditAction {
+  USER_LOGGED_IN
+  USER_LOGGED_OUT
+  WORKSPACE_CREATED
+  MEMBER_INVITED
+  MEMBER_ROLE_CHANGED
+  MEMBER_REMOVED
+  SERVICE_CREATED
+  SERVICE_UPDATED
+  SERVICE_DELETED
+  SERVICE_VERSION_CREATED
+  ARTIFACTS_GENERATED
+  DEPLOYMENT_TRIGGERED
+  ROLLBACK_REQUESTED
+  ROLLOUT_SUCCEEDED
+  ROLLOUT_FAILED
+  SCAN_STARTED
+  SCAN_PASSED
+  SCAN_FAILED
+  API_TOKEN_CREATED
+  API_TOKEN_REVOKED
+}
+
+// ─────────────────────────────────────────────────────────────
+// Identity & tenancy
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships     Membership[]
+  auditEvents     AuditEvent[]
+  serviceVersions ServiceVersion[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships  Membership[]
+  services     Service[]
+  environments Environment[]
+  auditEvents  AuditEvent[]
+  apiTokens    ApiToken[]
+  incidents    Incident[]
+  aiAnalyses   AiAnalysis[]
+
+  @@map("workspaces")
+}
+
+model Membership {
+  id          String   @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        Role     @default(DEVELOPER)
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+  @@map("memberships")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Environments — platform-managed (DEV/STAGING/PROD auto-seeded)
+// ─────────────────────────────────────────────────────────────
+
+model Environment {
+  id          String  @id @default(cuid())
+  workspaceId String
+  kind        EnvKind
+  name        String
+  region      String?
+  protected   Boolean @default(false)
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  deployments Deployment[]
+
+  @@unique([workspaceId, kind])
+  @@map("environments")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Service templates (metadata; bodies live in packages/templates/)
+// ─────────────────────────────────────────────────────────────
+
+model ServiceTemplate {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  name          String
+  description   String
+  runtime       Runtime
+  iconKey       String
+  defaultConfig Json
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  services      Service[]
+
+  @@map("service_templates")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Service catalog
+// ─────────────────────────────────────────────────────────────
+
+model Service {
+  id          String   @id @default(cuid())
+  workspaceId String
+  templateId  String
+  name        String
+  slug        String
+  description String?
+  runtime     Runtime
+  repoUrl     String?
+  ownerId     String?
+  tags        String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  template    ServiceTemplate  @relation(fields: [templateId], references: [id])
+  versions    ServiceVersion[]
+  deployments Deployment[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+  @@map("services")
+}
+
+// Every config change creates a new ServiceVersion. Artifacts attach here.
+// Rollouts reference a ServiceVersion to find their artifact bundle.
+model ServiceVersion {
+  id              String   @id @default(cuid())
+  serviceId       String
+  version         Int
+  replicas        Int      @default(2)
+  cpuMillicores   Int      @default(500)
+  memoryMb        Int      @default(512)
+  port            Int      @default(3000)
+  healthcheckPath String   @default("/healthz")
+  envVars         Json     @default("[]")
+  image           String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  createdById     String?
+
+  service   Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  createdBy User?       @relation(fields: [createdById], references: [id])
+  artifacts Artifact[]
+  rollouts  Rollout[]
+
+  @@unique([serviceId, version])
+  @@index([serviceId])
+  @@map("service_versions")
+}
+
+// First-class artifact: stored, versioned, previewable, downloadable.
+model Artifact {
+  id               String       @id @default(cuid())
+  serviceVersionId String
+  kind             ArtifactKind
+  filename         String
+  content          String       @db.Text
+  contentType      String       @default("text/plain")
+  checksum         String
+  generatorVersion String
+  createdAt        DateTime     @default(now())
+
+  serviceVersion ServiceVersion @relation(fields: [serviceVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceVersionId, kind, filename])
+  @@index([serviceVersionId])
+  @@map("artifacts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Deployments & rollouts
+// ─────────────────────────────────────────────────────────────
+
+model Deployment {
+  id               String       @id @default(cuid())
+  serviceId        String
+  environmentId    String
+  currentRolloutId String?      @unique
+  health           HealthStatus @default(UNKNOWN)
+  restartCount     Int          @default(0)
+  lastUpdatedAt    DateTime     @updatedAt
+  createdAt        DateTime     @default(now())
+
+  service        Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  environment    Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  rollouts       Rollout[]   @relation("DeploymentRollouts")
+  currentRollout Rollout?    @relation("CurrentRollout", fields: [currentRolloutId], references: [id])
+
+  @@unique([serviceId, environmentId])
+  @@index([serviceId])
+  @@map("deployments")
+}
+
+model Rollout {
+  id               String        @id @default(cuid())
+  deploymentId     String
+  serviceVersionId String
+  status           RolloutStatus @default(PENDING)
+  imageTag         String
+  failureReason    String?
+  triggeredById    String?
+  startedAt        DateTime      @default(now())
+  finishedAt       DateTime?
+
+  deployment     Deployment      @relation("DeploymentRollouts", fields: [deploymentId], references: [id], onDelete: Cascade)
+  serviceVersion ServiceVersion  @relation(fields: [serviceVersionId], references: [id])
+  asCurrent      Deployment?     @relation("CurrentRollout")
+  securityReport SecurityReport?
+  costEstimate   CostEstimate?
+
+  @@index([deploymentId, startedAt])
+  @@map("rollouts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// DevSecOps
+// ─────────────────────────────────────────────────────────────
+
+model SecurityReport {
+  id          String   @id @default(cuid())
+  rolloutId   String   @unique
+  passed      Boolean
+  score       Int
+  critical    Int      @default(0)
+  high        Int      @default(0)
+  medium      Int      @default(0)
+  low         Int      @default(0)
+  info        Int      @default(0)
+  scannerName String   @default("forgeops-mock")
+  createdAt   DateTime @default(now())
+
+  rollout  Rollout           @relation(fields: [rolloutId], references: [id], onDelete: Cascade)
+  findings SecurityFinding[]
+
+  @@map("security_reports")
+}
+
+model SecurityFinding {
+  id          String      @id @default(cuid())
+  reportId    String
+  kind        FindingKind
+  severity    Severity
+  ruleId      String
+  title       String
+  description String      @db.Text
+  location    String?
+  remediation String?     @db.Text
+  createdAt   DateTime    @default(now())
+
+  report SecurityReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, severity])
+  @@map("security_findings")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Cost
+// ─────────────────────────────────────────────────────────────
+
+model CostEstimate {
+  id             String   @id @default(cuid())
+  rolloutId      String   @unique
+  monthlyUsd     Decimal  @db.Decimal(10, 2)
+  cpuUsd         Decimal  @db.Decimal(10, 2)
+  memoryUsd      Decimal  @db.Decimal(10, 2)
+  egressUsd      Decimal  @db.Decimal(10, 2)
+  storageUsd     Decimal  @db.Decimal(10, 2)
+  warnings       Json     @default("[]")
+  suggestions    Json     @default("[]")
+  pricingVersion String   @default("v1")
+  createdAt      DateTime @default(now())
+
+  rollout Rollout @relation(fields: [rolloutId], references: [id], onDelete: Cascade)
+
+  @@map("cost_estimates")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Observability
+// ─────────────────────────────────────────────────────────────
+
+model MetricSample {
+  id           String   @id @default(cuid())
+  deploymentId String
+  ts           DateTime
+  cpuPct       Float
+  memMb        Float
+  rps          Float
+  p95Ms        Float
+  errorRate    Float
+
+  @@index([deploymentId, ts])
+  @@map("metric_samples")
+}
+
+model LogEntry {
+  id           String   @id @default(cuid())
+  deploymentId String
+  ts           DateTime
+  level        String
+  message      String   @db.Text
+  meta         Json?
+
+  @@index([deploymentId, ts])
+  @@map("log_entries")
+}
+
+model Incident {
+  id           String         @id @default(cuid())
+  workspaceId  String
+  deploymentId String?
+  title        String
+  severity     Severity
+  status       IncidentStatus @default(OPEN)
+  summary      String?        @db.Text
+  startedAt    DateTime
+  resolvedAt   DateTime?
+  createdAt    DateTime       @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, startedAt])
+  @@map("incidents")
+}
+
+// ─────────────────────────────────────────────────────────────
+// AI
+// ─────────────────────────────────────────────────────────────
+
+model AiAnalysis {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  subjectKind     String
+  subjectId       String
+  promptHash      String
+  summary         String   @db.Text
+  rootCauses      Json
+  recommendations Json
+  modelUsed       String
+  providerName    String
+  createdAt       DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([subjectKind, subjectId])
+  @@index([workspaceId, createdAt])
+  @@map("ai_analyses")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Audit
+// ─────────────────────────────────────────────────────────────
+
+model AuditEvent {
+  id          String      @id @default(cuid())
+  workspaceId String
+  actorId     String?
+  action      AuditAction
+  subjectKind String?
+  subjectId   String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor     User?     @relation(fields: [actorId], references: [id])
+
+  @@index([workspaceId, createdAt])
+  @@index([subjectKind, subjectId])
+  @@map("audit_events")
+}
+
+// ─────────────────────────────────────────────────────────────
+// API tokens
+// ─────────────────────────────────────────────────────────────
+
+model ApiToken {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  prefix      String    @unique
+  hash        String
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("api_tokens")
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@forgeops/config-eslint",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "base.mjs",
+    "node.mjs",
+    "nextjs.mjs"
+  ],
+  "exports": {
+    "./base": "./base.mjs",
+    "./node": "./node.mjs",
+    "./nextjs": "./nextjs.mjs"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.13.0",
+    "typescript-eslint": "^8.16.0"
+  }
+}
