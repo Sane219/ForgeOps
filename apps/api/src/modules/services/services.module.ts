@@ -1,9 +1,16 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
+import { ServicesController } from './services.controller';
+import { ServicesService } from './services.service';
+import { GeneratorModule } from '../generator/generator.module';
 
 /**
- * Day-3 deliverable. Service CRUD + ServiceVersion snapshotting. Every
- * config change bumps a version and enqueues artifact generation against
- * the GeneratorModule.
+ * Service CRUD + ServiceVersion management.
+ * Controller delegates to GeneratorService for artifact generation.
  */
-@Module({})
+@Module({
+  imports: [forwardRef(() => GeneratorModule)],
+  controllers: [ServicesController],
+  providers: [ServicesService],
+  exports: [ServicesService],
+})
 export class ServicesModule {}

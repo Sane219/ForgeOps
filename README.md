@@ -173,8 +173,8 @@ providers/<name>/
 |---|---|---|
 | 1 | Foundations (monorepo, configs, docker-compose) | Done |
 | 2 | DB + Auth (Prisma migrations, AuthModule, RBAC) | Done |
-| 3 | Services + Templates + Generator | Next |
-| 4 | Deployments + Rollouts + Queues | |
+| 3 | Services + Templates + Generator | Done |
+| 4 | Deployments + Rollouts + Queues | Next |
 | 5 | Security + Cost + Metrics/Incidents backend | |
 | 6 | Frontend foundation (shell, auth, dashboard) | |
 | 7 | Catalog + create-service wizard | |

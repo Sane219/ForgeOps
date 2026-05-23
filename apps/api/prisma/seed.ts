@@ -1,12 +1,20 @@
-import { PrismaClient, Role, Runtime, EnvKind, RolloutStatus, HealthStatus, AuditAction, Severity, FindingKind, ArtifactKind, IncidentStatus } from '@prisma/client';
+import { PrismaClient, Role, Runtime, EnvKind, RolloutStatus, HealthStatus, AuditAction, Severity, FindingKind, IncidentStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { buildRenderContext, renderArtifacts } from '../src/modules/generator/render';
 
 const prisma = new PrismaClient();
 const BCRYPT_ROUNDS = 12;
 
+const RUNTIME_TEMPLATE_MAP: Record<string, string> = {
+  NEXTJS: 'nextjs-app',
+  NESTJS: 'nestjs-api',
+  FASTAPI: 'fastapi-service',
+  PYTHON_WORKER: 'python-worker',
+  GO_SERVICE: 'go-service',
+};
+
 async function main() {
   console.log('[seed] Cleaning existing data...');
-  // Delete in reverse-dependency order
   await prisma.$executeRaw`TRUNCATE TABLE "ai_analyses", "audit_events", "api_tokens", "incidents", "log_entries", "metric_samples", "cost_estimates", "security_findings", "security_reports", "rollouts", "deployments", "artifacts", "service_versions", "services", "service_templates", "environments", "memberships", "workspaces", "users" CASCADE`;
 
   console.log('[seed] Creating demo users...');
@@ -47,7 +55,7 @@ async function main() {
   const prodEnv = workspace.environments.find((e) => e.kind === EnvKind.PROD)!;
 
   console.log('[seed] Creating service templates...');
-  const templates = await Promise.all([
+  const [nextjsTpl, nestjsTpl, fastapiTpl, pythonWorkerTpl, goServiceTpl] = await Promise.all([
     prisma.serviceTemplate.create({
       data: {
         key: 'nextjs-app', name: 'Next.js App', description: 'Production-ready Next.js 15 application with TypeScript and Tailwind.',
@@ -85,14 +93,11 @@ async function main() {
     }),
   ]);
 
-  const nextjsTemplate = templates[0];
-  const nestjsTemplate = templates[1];
-  const fastapiTemplate = templates[2];
-
   console.log('[seed] Creating services...');
   const apiService = await prisma.service.create({
     data: {
-      workspaceId: workspace.id, templateId: nestjsTemplate.id,
+      workspaceId: workspace.id,
+      templateId: nestjsTpl.id,
       name: 'acme-api', slug: 'acme-api', description: 'Core REST API for Acme products',
       runtime: Runtime.NESTJS, repoUrl: 'https://github.com/acme/acme-api', ownerId: admin.id,
       tags: ['backend', 'api', 'core'],
@@ -100,7 +105,8 @@ async function main() {
   });
   const webService = await prisma.service.create({
     data: {
-      workspaceId: workspace.id, templateId: nextjsTemplate.id,
+      workspaceId: workspace.id,
+      templateId: nextjsTpl.id,
       name: 'acme-web', slug: 'acme-web', description: 'Customer-facing web application',
       runtime: Runtime.NEXTJS, repoUrl: 'https://github.com/acme/acme-web', ownerId: dev.id,
       tags: ['frontend', 'web'],
@@ -108,7 +114,8 @@ async function main() {
   });
   const workerService = await prisma.service.create({
     data: {
-      workspaceId: workspace.id, templateId: fastapiTemplate.id,
+      workspaceId: workspace.id,
+      templateId: fastapiTpl.id,
       name: 'acme-worker', slug: 'acme-worker', description: 'ML inference worker for image classification',
       runtime: Runtime.FASTAPI, repoUrl: 'https://github.com/acme/acme-worker', ownerId: dev.id,
       tags: ['worker', 'ml', 'python'],
@@ -124,7 +131,7 @@ async function main() {
         { key: 'DATABASE_URL', value: 'postgresql://acme:***@postgres:5432/acme', secret: true },
         { key: 'REDIS_URL', value: 'redis://redis:6379', secret: false },
       ],
-      image: 'acme/acme-api:1.0.0', notes: 'Initial API deployment', createdById: admin.id,
+      image: 'ghcr.io/acme/acme-api:v1', notes: 'Initial API deployment', createdById: admin.id,
     },
   });
   const webV1 = await prisma.serviceVersion.create({
@@ -135,7 +142,7 @@ async function main() {
         { key: 'NEXT_PUBLIC_API_BASE_URL', value: 'https://api.acme.dev', secret: false },
         { key: 'DATABASE_URL', value: 'postgresql://acme:***@postgres:5432/acme', secret: true },
       ],
-      image: 'acme/acme-web:1.0.0', notes: 'Initial web deploy', createdById: dev.id,
+      image: 'ghcr.io/acme/acme-web:v1', notes: 'Initial web deploy', createdById: dev.id,
     },
   });
   const workerV1 = await prisma.serviceVersion.create({
@@ -146,11 +153,11 @@ async function main() {
         { key: 'MODEL_PATH', value: '/models/classifier-v2.onnx', secret: false },
         { key: 'REDIS_URL', value: 'redis://redis:6379', secret: false },
       ],
-      image: 'acme/acme-worker:1.0.0', notes: 'Initial worker deploy', createdById: dev.id,
+      image: 'ghcr.io/acme/acme-worker:v1', notes: 'Initial worker deploy', createdById: dev.id,
     },
   });
 
-  // A second version for the API (shows version history in UI)
+  // v2 for the API (shows version history in UI)
   await prisma.serviceVersion.create({
     data: {
       serviceId: apiService.id, version: 2, replicas: 3, cpuMillicores: 750, memoryMb: 768,
@@ -160,12 +167,58 @@ async function main() {
         { key: 'REDIS_URL', value: 'redis://redis:6379', secret: false },
         { key: 'FEATURE_RATE_LIMIT', value: 'true', secret: false },
       ],
-      image: 'acme/acme-api:1.1.0', notes: 'Added rate limiting, bumped resources', createdById: admin.id,
+      image: 'ghcr.io/acme/acme-api:v2', notes: 'Added rate limiting, bumped resources', createdById: admin.id,
     },
   });
 
+  // ── Generate artifacts using shared render function ─────────
+  console.log('[seed] Generating artifacts...');
+
+  const versionsToGenerate = [
+    { service: apiService, version: apiV1 },
+    { service: webService, version: webV1 },
+    { service: workerService, version: workerV1 },
+  ];
+
+  for (const { service, version } of versionsToGenerate) {
+    const templateDir = RUNTIME_TEMPLATE_MAP[service.runtime] ?? 'nestjs-api';
+    const ctx = buildRenderContext({
+      service: {
+        name: service.name,
+        slug: service.slug,
+        runtime: service.runtime,
+        port: version.port,
+        healthcheckPath: version.healthcheckPath,
+        replicas: version.replicas,
+        cpuMillicores: version.cpuMillicores,
+        memoryMb: version.memoryMb,
+        envVars: (version.envVars as Array<{ key: string; value: string; secret: boolean }>) ?? [],
+      },
+      version: {
+        version: version.version,
+        image: version.image,
+      },
+      workspace: { slug: workspace.slug, name: workspace.name },
+    });
+
+    const rendered = renderArtifacts(templateDir, ctx);
+    for (const [kind, artifact] of rendered) {
+      await prisma.artifact.create({
+        data: {
+          serviceVersionId: version.id,
+          kind,
+          filename: artifact.filename,
+          content: artifact.content,
+          contentType: artifact.contentType,
+          checksum: artifact.checksum,
+          generatorVersion: '0.1.0',
+        },
+      });
+    }
+    console.log(`  → ${service.slug} v${version.version}: ${rendered.size} artifacts`);
+  }
+
   console.log('[seed] Creating deployments and rollouts...');
-  // Deploy API to all environments
   const apiDevDeploy = await prisma.deployment.create({
     data: { serviceId: apiService.id, environmentId: devEnv.id, health: HealthStatus.HEALTHY, lastUpdatedAt: new Date() },
   });
@@ -175,25 +228,20 @@ async function main() {
   const apiProdDeploy = await prisma.deployment.create({
     data: { serviceId: apiService.id, environmentId: prodEnv.id, health: HealthStatus.HEALTHY, lastUpdatedAt: new Date() },
   });
-
-  // Deploy web to DEV and STAGING
   const webDevDeploy = await prisma.deployment.create({
     data: { serviceId: webService.id, environmentId: devEnv.id, health: HealthStatus.HEALTHY, lastUpdatedAt: new Date() },
   });
   const webStagingDeploy = await prisma.deployment.create({
     data: { serviceId: webService.id, environmentId: stagingEnv.id, health: HealthStatus.UNKNOWN, lastUpdatedAt: new Date() },
   });
-
-  // Deploy worker to DEV only
   const workerDevDeploy = await prisma.deployment.create({
     data: { serviceId: workerService.id, environmentId: devEnv.id, health: HealthStatus.DEGRADED, lastUpdatedAt: new Date() },
   });
 
-  // Succeeded rollouts
   const apiProdRollout = await prisma.rollout.create({
     data: {
       deploymentId: apiProdDeploy.id, serviceVersionId: apiV1.id, status: RolloutStatus.SUCCEEDED,
-      imageTag: 'acme/acme-api:1.0.0', triggeredById: admin.id,
+      imageTag: 'ghcr.io/acme/acme-api:v1', triggeredById: admin.id,
       startedAt: new Date(Date.now() - 3600000 * 24), finishedAt: new Date(Date.now() - 3600000 * 23),
     },
   });
@@ -202,28 +250,26 @@ async function main() {
   const webDevRollout = await prisma.rollout.create({
     data: {
       deploymentId: webDevDeploy.id, serviceVersionId: webV1.id, status: RolloutStatus.SUCCEEDED,
-      imageTag: 'acme/acme-web:1.0.0', triggeredById: dev.id,
+      imageTag: 'ghcr.io/acme/acme-web:v1', triggeredById: dev.id,
       startedAt: new Date(Date.now() - 3600000 * 12), finishedAt: new Date(Date.now() - 3600000 * 11),
     },
   });
   await prisma.deployment.update({ where: { id: webDevDeploy.id }, data: { currentRolloutId: webDevRollout.id } });
 
-  // A failed rollout for the worker (to demo AI analysis on failure)
   const workerRollout = await prisma.rollout.create({
     data: {
       deploymentId: workerDevDeploy.id, serviceVersionId: workerV1.id, status: RolloutStatus.FAILED,
-      imageTag: 'acme/acme-worker:1.0.0', triggeredById: dev.id,
+      imageTag: 'ghcr.io/acme/acme-worker:v1', triggeredById: dev.id,
       failureReason: 'OOMKilled: container exceeded 2Gi memory limit',
       startedAt: new Date(Date.now() - 3600000 * 2), finishedAt: new Date(Date.now() - 3600000),
     },
   });
   await prisma.deployment.update({ where: { id: workerDevDeploy.id }, data: { currentRolloutId: workerRollout.id } });
 
-  // An in-progress rollout for API staging
   const apiStagingRollout = await prisma.rollout.create({
     data: {
       deploymentId: apiStagingDeploy.id, serviceVersionId: apiV1.id, status: RolloutStatus.IN_PROGRESS,
-      imageTag: 'acme/acme-api:1.0.0', triggeredById: admin.id,
+      imageTag: 'ghcr.io/acme/acme-api:v1', triggeredById: admin.id,
       startedAt: new Date(Date.now() - 300000),
     },
   });
@@ -270,7 +316,6 @@ async function main() {
   });
 
   console.log('[seed] Creating metric samples...');
-  // Generate 24h of synthetic metrics for API prod (hourly)
   const now = Date.now();
   await prisma.metricSample.createMany({
     data: Array.from({ length: 24 }, (_, i) => ({
@@ -280,7 +325,7 @@ async function main() {
       memMb: 350 + Math.sin(i / 4) * 50 + Math.random() * 20,
       rps: 50 + Math.sin(i / 3) * 30 + Math.random() * 10,
       p95Ms: 45 + Math.sin(i / 5) * 20 + Math.random() * 10,
-      errorRate: i === 18 ? 8.5 : Math.random() * 0.5, // spike at hour 18
+      errorRate: i === 18 ? 8.5 : Math.random() * 0.5,
     })),
   });
 
@@ -302,24 +347,31 @@ async function main() {
       { workspaceId: workspace.id, actorId: admin.id, action: AuditAction.SERVICE_CREATED, subjectKind: 'service', subjectId: apiService.id, metadata: { name: 'acme-api' } },
       { workspaceId: workspace.id, actorId: dev.id, action: AuditAction.SERVICE_CREATED, subjectKind: 'service', subjectId: webService.id, metadata: { name: 'acme-web' } },
       { workspaceId: workspace.id, actorId: dev.id, action: AuditAction.SERVICE_CREATED, subjectKind: 'service', subjectId: workerService.id, metadata: { name: 'acme-worker' } },
-      { workspaceId: workspace.id, actorId: admin.id, action: AuditAction.DEPLOYMENT_TRIGGERED, subjectKind: 'rollout', subjectId: apiProdRollout.id, metadata: { environment: 'PROD', imageTag: 'acme/acme-api:1.0.0' } },
-      { workspaceId: workspace.id, actorId: dev.id, action: AuditAction.DEPLOYMENT_TRIGGERED, subjectKind: 'rollout', subjectId: webDevRollout.id, metadata: { environment: 'DEV', imageTag: 'acme/acme-web:1.0.0' } },
+      { workspaceId: workspace.id, actorId: admin.id, action: AuditAction.ARTIFACTS_GENERATED, subjectKind: 'service', subjectId: apiService.id, metadata: { version: 1 } },
+      { workspaceId: workspace.id, actorId: dev.id, action: AuditAction.ARTIFACTS_GENERATED, subjectKind: 'service', subjectId: webService.id, metadata: { version: 1 } },
+      { workspaceId: workspace.id, actorId: dev.id, action: AuditAction.ARTIFACTS_GENERATED, subjectKind: 'service', subjectId: workerService.id, metadata: { version: 1 } },
+      { workspaceId: workspace.id, actorId: admin.id, action: AuditAction.DEPLOYMENT_TRIGGERED, subjectKind: 'rollout', subjectId: apiProdRollout.id, metadata: { environment: 'PROD', imageTag: 'ghcr.io/acme/acme-api:v1' } },
+      { workspaceId: workspace.id, actorId: dev.id, action: AuditAction.DEPLOYMENT_TRIGGERED, subjectKind: 'rollout', subjectId: webDevRollout.id, metadata: { environment: 'DEV', imageTag: 'ghcr.io/acme/acme-web:v1' } },
       { workspaceId: workspace.id, actorId: dev.id, action: AuditAction.ROLLOUT_FAILED, subjectKind: 'rollout', subjectId: workerRollout.id, metadata: { reason: 'OOMKilled' } },
       { workspaceId: workspace.id, actorId: admin.id, action: AuditAction.MEMBER_INVITED, subjectKind: 'user', subjectId: dev.id, metadata: { role: 'DEVELOPER' } },
     ],
   });
+
+  // Count artifacts
+  const artifactCount = await prisma.artifact.count();
 
   console.log('[seed] Done! Summary:');
   console.log(`  Users:        2 (admin@forgeops.dev / dev@forgeops.dev — password: password123)`);
   console.log(`  Workspace:    1 (acme-corp) with DEV/STAGING/PROD environments`);
   console.log(`  Templates:    5`);
   console.log(`  Services:     3 (acme-api, acme-web, acme-worker)`);
+  console.log(`  Artifacts:    ${artifactCount} generated from Handlebars templates`);
   console.log(`  Deployments:  6 across environments`);
   console.log(`  Rollouts:     4 (2 succeeded, 1 failed, 1 in-progress)`);
   console.log(`  Security:     2 reports with findings`);
   console.log(`  Metrics:      24 hourly samples for API prod`);
   console.log(`  Incidents:    1 open (worker OOM)`);
-  console.log(`  Audit:        8 events`);
+  console.log(`  Audit:        11 events`);
 }
 
 main()

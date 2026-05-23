@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
+import { GeneratorService } from './generator.service';
 
 /**
- * Day-3 deliverable. The headline feature — renders the Handlebars
- * templates from @forgeops/templates into Dockerfile / K8s / Helm / CI /
- * ArgoCD artifact bundles and persists them as `Artifact` rows under the
- * provided `ServiceVersion`.
- *
- * Sub-generators (one per ArtifactKind) are pure functions to keep them
- * trivially unit-testable.
+ * Artifact generation module. Renders Handlebars templates from
+ * @forgeops/templates into Dockerfile / K8s / Helm / CI / ArgoCD
+ * artifact bundles and persists them as Artifact rows.
  */
-@Module({})
+@Module({
+  providers: [GeneratorService],
+  exports: [GeneratorService],
+})
 export class GeneratorModule {}

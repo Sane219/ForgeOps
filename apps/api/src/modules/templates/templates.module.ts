@@ -1,8 +1,14 @@
 import { Module } from '@nestjs/common';
+import { TemplatesController } from './templates.controller';
+import { TemplatesService } from './templates.service';
 
 /**
- * Day-3 deliverable. Read-only registry surfaced from @forgeops/templates
- * plus the corresponding rows in the ServiceTemplate table.
+ * Read-only registry surfaced from @forgeops/templates.
+ * Public endpoints — no auth required for browsing templates.
  */
-@Module({})
+@Module({
+  controllers: [TemplatesController],
+  providers: [TemplatesService],
+  exports: [TemplatesService],
+})
 export class TemplatesModule {}
