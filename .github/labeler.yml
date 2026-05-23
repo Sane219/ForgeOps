@@ -1,0 +1,30 @@
+# Auto-label PRs by changed file paths
+# Uses actions/labeler
+
+api:
+  - changed-files:
+      - any-glob-to-any-file: "apps/api/**"
+
+web:
+  - changed-files:
+      - any-glob-to-any-file: "apps/web/**"
+
+packages:
+  - changed-files:
+      - any-glob-to-any-file: "packages/**"
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file: "infra/**"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "*.md"
+
+database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/api/prisma/**"
+          - "**/migration.sql"
