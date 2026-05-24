@@ -1,8 +1,9 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
+import { toast } from 'sonner';
 
 export interface ServiceVersion {
   id: string;
@@ -78,5 +79,68 @@ export function useServiceDeployments(serviceId: string) {
     queryKey: queryKeys.services.deployments(serviceId),
     queryFn: () => apiFetch<Deployment[]>(`/services/${serviceId}/deployments`),
     enabled: !!serviceId,
+  });
+}
+
+export function useCreateService() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      name: string;
+      slug: string;
+      templateKey: string;
+      description?: string;
+      tags?: string[];
+    }) =>
+      apiFetch<Service>('/services', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.all });
+      toast.success(`Service "${data.name}" created`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to create service');
+    },
+  });
+}
+
+export function useTriggerRollout(serviceId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { environment: string }) =>
+      apiFetch<{ id: string }>(`/services/${serviceId}/deployments`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.services.deployments(serviceId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.deployments.all });
+      toast.success('Rollout triggered');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to trigger rollout');
+    },
+  });
+}
+
+export function useRollbackDeployment(deploymentId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<{ id: string }>(`/deployments/${deploymentId}/rollback`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.deployments.all });
+      toast.success('Rollback initiated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Rollback failed');
+    },
   });
 }
