@@ -19,6 +19,8 @@ export interface ScanInput {
   replicas: number;
   cpuMillicores: number;
   memoryMb: number;
+  healthcheckPath?: string;
+  environmentKind?: string;
 }
 
 export interface ScanResult {

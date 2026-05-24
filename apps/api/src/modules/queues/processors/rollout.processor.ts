@@ -4,6 +4,9 @@ import { ConfigService } from '@nestjs/config';
 import { RolloutStatus, HealthStatus, AuditAction } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
+import { SecurityService } from '../../security/security.service';
+import { CostService } from '../../cost/cost.service';
+import { ObservabilityService } from '../../observability/observability.service';
 import type { RolloutPlan, FailureScenario } from '../../../providers/rollout/rollout-driver.interface';
 
 export interface RolloutJobData extends RolloutPlan {}
@@ -51,6 +54,9 @@ export class RolloutProcessor implements OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly securityService: SecurityService,
+    private readonly costService: CostService,
+    private readonly observabilityService: ObservabilityService,
   ) {}
 
   start(): void {
@@ -122,6 +128,8 @@ export class RolloutProcessor implements OnModuleDestroy {
           metadata: { reason: phase.failMessage, phase: phase.name, scenario: plan.failureScenario } as any,
         });
 
+        // Post-rollout hooks: security, cost, observability
+        await this.runPostRolloutHooks(plan, RolloutStatus.FAILED, plan.failureScenario);
         return;
       }
     }
@@ -153,6 +161,70 @@ export class RolloutProcessor implements OnModuleDestroy {
       subjectId: plan.rolloutId,
       metadata: { imageTag: plan.imageTag } as any,
     });
+
+    // Post-rollout hooks: security, cost, observability
+    await this.runPostRolloutHooks(plan, RolloutStatus.SUCCEEDED);
+  }
+
+  /**
+   * Run post-rollout hooks: security scan, cost estimate, observability data.
+   * Failures here are logged but do not affect rollout status.
+   */
+  private async runPostRolloutHooks(
+    plan: RolloutJobData,
+    status: RolloutStatus,
+    failureScenario?: FailureScenario,
+  ): Promise<void> {
+    try {
+      // Security scan
+      await this.securityService.scan(plan.rolloutId);
+      this.logger.debug(`Security scan completed for rollout ${plan.rolloutId}`);
+    } catch (err: any) {
+      this.logger.warn(`Security scan failed for rollout ${plan.rolloutId}: ${err.message}`);
+    }
+
+    try {
+      // Cost estimate
+      await this.costService.createFromRollout(plan.rolloutId);
+      this.logger.debug(`Cost estimate created for rollout ${plan.rolloutId}`);
+    } catch (err: any) {
+      this.logger.warn(`Cost estimate failed for rollout ${plan.rolloutId}: ${err.message}`);
+    }
+
+    try {
+      // Observability metrics + logs
+      await this.observabilityService.generateMetricsForRollout(
+        plan.deploymentId,
+        plan.rolloutId,
+        status,
+        failureScenario,
+      );
+      await this.observabilityService.generateLogsForRollout(
+        plan.deploymentId,
+        plan.rolloutId,
+        status,
+        failureScenario,
+      );
+      this.logger.debug(`Observability data generated for rollout ${plan.rolloutId}`);
+    } catch (err: any) {
+      this.logger.warn(`Observability generation failed for rollout ${plan.rolloutId}: ${err.message}`);
+    }
+
+    // Create incident for failures
+    if (status === RolloutStatus.FAILED && failureScenario) {
+      try {
+        const workspaceId = await this.getWorkspaceId(plan.deploymentId);
+        await this.observabilityService.createIncident(
+          workspaceId,
+          plan.deploymentId,
+          plan.rolloutId,
+          failureScenario,
+        );
+        this.logger.debug(`Incident created for failed rollout ${plan.rolloutId}`);
+      } catch (err: any) {
+        this.logger.warn(`Incident creation failed for rollout ${plan.rolloutId}: ${err.message}`);
+      }
+    }
   }
 
   private async getWorkspaceId(deploymentId: string): Promise<string> {

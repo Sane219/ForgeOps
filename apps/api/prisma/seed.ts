@@ -275,66 +275,274 @@ async function main() {
   });
   await prisma.deployment.update({ where: { id: apiStagingDeploy.id }, data: { currentRolloutId: apiStagingRollout.id } });
 
+  // ── Security reports for all rollouts ───────────────────────
   console.log('[seed] Creating security reports and findings...');
-  const prodReport = await prisma.securityReport.create({
+  const apiProdReport = await prisma.securityReport.create({
     data: {
       rolloutId: apiProdRollout.id, passed: true, score: 92,
       critical: 0, high: 0, medium: 1, low: 2, info: 3,
+      scannerName: 'forgeops-mock',
     },
   });
   await prisma.securityFinding.createMany({
     data: [
-      { reportId: prodReport.id, kind: FindingKind.CONTAINER, severity: Severity.MEDIUM, ruleId: 'FS-001', title: 'Base image uses :latest tag', description: 'Dockerfile FROM node:22-bookworm-slim should pin a specific version', location: 'Dockerfile', remediation: 'Pin to node:22.x.x-bookworm-slim' },
-      { reportId: prodReport.id, kind: FindingKind.LINT, severity: Severity.LOW, ruleId: 'FS-002', title: 'Missing healthcheck in Dockerfile', description: 'No HEALTHCHECK instruction found', location: 'Dockerfile', remediation: 'Add HEALTHCHECK --interval=30s CMD curl -f http://localhost:4000/healthz' },
-      { reportId: prodReport.id, kind: FindingKind.LINT, severity: Severity.LOW, ruleId: 'FS-003', title: 'No .dockerignore detected', description: 'Build context may include unnecessary files', location: '.dockerignore', remediation: 'Create .dockerignore excluding node_modules, .git, *.md' },
+      { reportId: apiProdReport.id, kind: FindingKind.CONTAINER, severity: Severity.MEDIUM, ruleId: 'SEC-003', title: 'Base image uses :latest tag', description: 'Dockerfile FROM node:22-bookworm-slim should pin a specific version', location: 'Dockerfile', remediation: 'Pin to node:22.x.x-bookworm-slim' },
+      { reportId: apiProdReport.id, kind: FindingKind.LINT, severity: Severity.LOW, ruleId: 'SEC-010', title: 'Config sprawl — 18 environment variables', description: 'Service has 18 environment variables, indicating possible configuration sprawl', location: 'envVars', remediation: 'Group related config into files or a config service' },
+      { reportId: apiProdReport.id, kind: FindingKind.DEPENDENCY, severity: Severity.INFO, ruleId: 'SEC-007', title: 'Infrastructure dependency: DATABASE_URL', description: 'Service depends on PostgreSQL via DATABASE_URL', location: 'envVars.DATABASE_URL', remediation: 'Include database in SLO monitoring' },
+      { reportId: apiProdReport.id, kind: FindingKind.DEPENDENCY, severity: Severity.INFO, ruleId: 'SEC-007', title: 'Infrastructure dependency: REDIS_URL', description: 'Service depends on Redis via REDIS_URL', location: 'envVars.REDIS_URL', remediation: 'Include Redis in SLO monitoring' },
+      { reportId: apiProdReport.id, kind: FindingKind.SECRET, severity: Severity.CRITICAL, ruleId: 'SEC-001', title: 'Suspicious secret in environment variable', description: 'Variable "DATABASE_URL" appears to contain a secret value', location: 'envVars.DATABASE_URL', remediation: 'Move to a dedicated secrets manager' },
+      { reportId: apiProdReport.id, kind: FindingKind.LINT, severity: Severity.LOW, ruleId: 'SEC-004', title: 'Health check path may be insufficient', description: 'Health check path "/healthz" — verify it checks all critical dependencies', location: 'healthcheckPath', remediation: 'Ensure /healthz checks DB, cache, and external dependencies' },
+    ],
+  });
+
+  const webDevReport = await prisma.securityReport.create({
+    data: {
+      rolloutId: webDevRollout.id, passed: true, score: 85,
+      critical: 1, high: 0, medium: 1, low: 1, info: 1,
+      scannerName: 'forgeops-mock',
+    },
+  });
+  await prisma.securityFinding.createMany({
+    data: [
+      { reportId: webDevReport.id, kind: FindingKind.SECRET, severity: Severity.CRITICAL, ruleId: 'SEC-001', title: 'Suspicious secret in environment variable', description: 'Variable "DATABASE_URL" appears to contain a secret value', location: 'envVars.DATABASE_URL', remediation: 'Move to a dedicated secrets manager' },
+      { reportId: webDevReport.id, kind: FindingKind.CONTAINER, severity: Severity.MEDIUM, ruleId: 'SEC-003', title: 'Base image may use unpinned tag', description: 'Dockerfile FROM node:22-alpine should pin a specific version', location: 'Dockerfile', remediation: 'Pin to node:22.x.x-alpine' },
+      { reportId: webDevReport.id, kind: FindingKind.DEPENDENCY, severity: Severity.INFO, ruleId: 'SEC-007', title: 'Infrastructure dependency: DATABASE_URL', description: 'Service depends on PostgreSQL', location: 'envVars.DATABASE_URL', remediation: 'Include database in SLO monitoring' },
+      { reportId: webDevReport.id, kind: FindingKind.LINT, severity: Severity.LOW, ruleId: 'SEC-004', title: 'Health check path "/api/health"', description: 'Verify health endpoint checks all critical subsystems', location: 'healthcheckPath', remediation: 'Ensure health endpoint validates database connectivity' },
     ],
   });
 
   const workerReport = await prisma.securityReport.create({
     data: {
-      rolloutId: workerRollout.id, passed: false, score: 65,
-      critical: 1, high: 1, medium: 0, low: 1, info: 0,
+      rolloutId: workerRollout.id, passed: false, score: 55,
+      critical: 1, high: 2, medium: 0, low: 1, info: 1,
+      scannerName: 'forgeops-mock',
     },
   });
   await prisma.securityFinding.createMany({
     data: [
-      { reportId: workerReport.id, kind: FindingKind.SECRET, severity: Severity.CRITICAL, ruleId: 'SEC-001', title: 'Hardcoded API key in environment', description: 'Environment variable contains what appears to be an API key', remediation: 'Move secret to a secrets manager or Kubernetes Secret' },
-      { reportId: workerReport.id, kind: FindingKind.POLICY, severity: Severity.HIGH, ruleId: 'POL-001', title: 'Replicas < 2 in non-dev environment', description: 'Running only 1 replica with no failover', remediation: 'Set replicas >= 2 for redundancy' },
-      { reportId: workerReport.id, kind: FindingKind.CONTAINER, severity: Severity.LOW, ruleId: 'FS-004', title: 'Container runs as root', description: 'No USER instruction in Dockerfile', remediation: 'Add USER nonroot:nonroot before CMD' },
+      { reportId: workerReport.id, kind: FindingKind.CONTAINER, severity: Severity.HIGH, ruleId: 'SEC-002', title: 'No CPU resource limit set', description: 'Container has no CPU limit configured. Allows unbounded CPU consumption.', location: 'serviceVersion.cpuMillicores', remediation: 'Set a CPU resource limit (e.g., 1000m)' },
+      { reportId: workerReport.id, kind: FindingKind.CONTAINER, severity: Severity.HIGH, ruleId: 'SEC-005', title: 'Container may run as root', description: 'No USER instruction found in Dockerfile. Containers default to running as root.', location: 'Dockerfile', remediation: 'Add USER nonroot:nonroot before CMD instruction' },
+      { reportId: workerReport.id, kind: FindingKind.POLICY, severity: Severity.CRITICAL, ruleId: 'SEC-006', title: 'Single replica in non-development environment', description: 'Running only 1 replica. A single point of failure will cause downtime.', location: 'serviceVersion.replicas', remediation: 'Set replicas >= 2 for redundancy' },
+      { reportId: workerReport.id, kind: FindingKind.DEPENDENCY, severity: Severity.INFO, ruleId: 'SEC-007', title: 'Infrastructure dependency: REDIS_URL', description: 'Service depends on Redis via REDIS_URL', location: 'envVars.REDIS_URL', remediation: 'Include Redis in SLO monitoring' },
+      { reportId: workerReport.id, kind: FindingKind.LINT, severity: Severity.LOW, ruleId: 'SEC-004', title: 'Missing health check path', description: 'No dedicated health check endpoint configured', location: 'healthcheckPath', remediation: 'Add a /healthz endpoint' },
     ],
   });
 
+  // ── Cost estimates for all rollouts ─────────────────────────
   console.log('[seed] Creating cost estimates...');
+  // Pricing (CostService rates): CPU $0.00003/millicore-hr, mem $0.00005/MB-hr, egress $0.09/GB, storage $0.10/GB-mo
+  // api-prod: 2 replicas * (500 * 730 * 0.00003 + 512 * 730 * 0.00005) + 50*0.09 + 10*0.10
+  //         = 2 * (10.95 + 18.69) + 4.50 + 1.00 = 64.78
   await prisma.costEstimate.create({
     data: {
       rolloutId: apiProdRollout.id,
-      monthlyUsd: 127.50, cpuUsd: 54.00, memoryUsd: 38.40, egressUsd: 15.10, storageUsd: 20.00,
-      warnings: [{ level: 'INFO', message: 'CPU utilization averaging 35% — consider reducing to 500m' }],
-      suggestions: [{ action: 'Right-size memory to 512Mi', estimatedSaving: 12.80 }],
+      monthlyUsd: 64.78, cpuUsd: 21.90, memoryUsd: 37.38, egressUsd: 4.50, storageUsd: 1.00,
+      warnings: [
+        { code: 'MEMORY_CPU_RATIO', message: 'Memory-to-CPU ratio is high (1.02 MB per millicore)', severity: 'WARN' },
+      ],
+      suggestions: [
+        { code: 'RIGHTSIZE_MEMORY', message: 'Reduce memory from 512Mi to 256Mi if workload permits', estimatedMonthlySavingsUsd: 18.69 },
+      ],
+      pricingVersion: 'v1',
+    },
+  });
+  // web-dev: 2 replicas * (250 * 730 * 0.00003 + 256 * 730 * 0.00005) + 50*0.09 + 10*0.10
+  //        = 2 * (5.48 + 9.34) + 5.50 = 35.14
+  await prisma.costEstimate.create({
+    data: {
+      rolloutId: webDevRollout.id,
+      monthlyUsd: 35.14, cpuUsd: 10.95, memoryUsd: 18.69, egressUsd: 4.50, storageUsd: 1.00,
+      warnings: [],
+      suggestions: [],
+      pricingVersion: 'v1',
+    },
+  });
+  // worker-dev: 1 replica * (1000 * 730 * 0.00003 + 2048 * 730 * 0.00005) + 50*0.09 + 10*0.10
+  //           = (21.90 + 74.75) + 5.50 = 102.15
+  await prisma.costEstimate.create({
+    data: {
+      rolloutId: workerRollout.id,
+      monthlyUsd: 102.15, cpuUsd: 21.90, memoryUsd: 74.75, egressUsd: 4.50, storageUsd: 1.00,
+      warnings: [
+        { code: 'HIGH_MEMORY', message: 'Memory is set to 2048Mi — this may be overprovisioned', severity: 'WARN' },
+      ],
+      suggestions: [
+        { code: 'RIGHTSIZE_MEMORY', message: 'Reduce memory from 2048Mi to 1024Mi if workload permits', estimatedMonthlySavingsUsd: 37.38 },
+      ],
+      pricingVersion: 'v1',
+    },
+  });
+  // api-staging: 2 replicas * (500 * 730 * 0.00003 + 512 * 730 * 0.00005) + 50*0.09 + 10*0.10 = 64.78
+  await prisma.costEstimate.create({
+    data: {
+      rolloutId: apiStagingRollout.id,
+      monthlyUsd: 64.78, cpuUsd: 21.90, memoryUsd: 37.38, egressUsd: 4.50, storageUsd: 1.00,
+      warnings: [],
+      suggestions: [],
       pricingVersion: 'v1',
     },
   });
 
+  // ── Metric samples for all deployments ──────────────────────
   console.log('[seed] Creating metric samples...');
   const now = Date.now();
+
+  // Helper: deterministic noise
+  const detNoise = (seed: number, i: number, salt: number) => {
+    const h = ((seed * 2654435761 + i * 2246822519 + salt * 3266489917) >>> 0) % 100;
+    return h / 100;
+  };
+
+  // API PROD — healthy diurnal pattern
   await prisma.metricSample.createMany({
-    data: Array.from({ length: 24 }, (_, i) => ({
-      deploymentId: apiProdDeploy.id,
-      ts: new Date(now - (24 - i) * 3600000),
-      cpuPct: 20 + Math.sin(i / 3) * 15 + Math.random() * 10,
-      memMb: 350 + Math.sin(i / 4) * 50 + Math.random() * 20,
-      rps: 50 + Math.sin(i / 3) * 30 + Math.random() * 10,
-      p95Ms: 45 + Math.sin(i / 5) * 20 + Math.random() * 10,
-      errorRate: i === 18 ? 8.5 : Math.random() * 0.5,
+    data: Array.from({ length: 24 }, (_, i) => {
+      const diurnal = Math.max(0, Math.sin((i - 6) * Math.PI / 12));
+      return {
+        deploymentId: apiProdDeploy.id,
+        ts: new Date(now - (24 - i) * 3600000),
+        cpuPct: 15 + diurnal * 20 + detNoise(1, i, 0) * 8,
+        memMb: 250 + diurnal * 100 + detNoise(1, i, 1) * 20,
+        rps: 30 + diurnal * 50 + detNoise(1, i, 2) * 10,
+        p95Ms: 30 + diurnal * 25 + detNoise(1, i, 3) * 15,
+        errorRate: 0.05 + detNoise(1, i, 4) * 0.3,
+      };
+    }),
+  });
+
+  // WEB DEV — healthy but lower traffic
+  await prisma.metricSample.createMany({
+    data: Array.from({ length: 24 }, (_, i) => {
+      const diurnal = Math.max(0, Math.sin((i - 6) * Math.PI / 12));
+      return {
+        deploymentId: webDevDeploy.id,
+        ts: new Date(now - (24 - i) * 3600000),
+        cpuPct: 10 + diurnal * 15 + detNoise(2, i, 0) * 5,
+        memMb: 180 + diurnal * 60 + detNoise(2, i, 1) * 10,
+        rps: 10 + diurnal * 30 + detNoise(2, i, 2) * 5,
+        p95Ms: 25 + diurnal * 15 + detNoise(2, i, 3) * 8,
+        errorRate: 0.02 + detNoise(2, i, 4) * 0.2,
+      };
+    }),
+  });
+
+  // WORKER DEV — OOMKilled pattern: rising memory, crash, restart, rising again
+  await prisma.metricSample.createMany({
+    data: Array.from({ length: 24 }, (_, i) => {
+      const cycleHour = i % 12;
+      const memRising = cycleHour < 10;
+      return {
+        deploymentId: workerDevDeploy.id,
+        ts: new Date(now - (24 - i) * 3600000),
+        cpuPct: memRising ? 30 + cycleHour * 5 : 5,
+        memMb: memRising ? 500 + cycleHour * 180 : 100,
+        rps: memRising ? 20 : 0,
+        p95Ms: memRising ? 50 + cycleHour * 20 : 0,
+        errorRate: memRising ? cycleHour * 1.5 : 15,
+      };
+    }),
+  });
+
+  // API STAGING — in-progress, partial data
+  await prisma.metricSample.createMany({
+    data: Array.from({ length: 6 }, (_, i) => ({
+      deploymentId: apiStagingDeploy.id,
+      ts: new Date(now - (6 - i) * 3600000),
+      cpuPct: 12 + detNoise(4, i, 0) * 10,
+      memMb: 200 + detNoise(4, i, 1) * 30,
+      rps: 0,
+      p95Ms: 0,
+      errorRate: 0,
     })),
   });
 
+  // ── Log entries for key deployments ─────────────────────────
+  console.log('[seed] Creating log entries...');
+  const logStepMs = 15000; // 1 log per 15s
+
+  // API PROD — healthy startup + request logs
+  const apiProdLogs = [
+    { level: 'INFO', message: 'Starting application...' },
+    { level: 'INFO', message: 'Connected to database' },
+    { level: 'INFO', message: 'HTTP server listening on port 4000' },
+    { level: 'INFO', message: 'Readiness probe: /healthz — 200 OK' },
+    { level: 'INFO', message: 'Service ready to accept traffic' },
+    { level: 'INFO', message: 'GET /api/v1/status 200 — 8ms' },
+    { level: 'INFO', message: 'POST /api/v1/data 201 — 35ms' },
+    { level: 'DEBUG', message: 'Cache hit ratio: 94.2%' },
+    { level: 'INFO', message: 'Background job completed: session cleanup' },
+    { level: 'INFO', message: 'GET /healthz 200 — 1ms' },
+    { level: 'INFO', message: 'GET /api/v1/items 200 — 12ms' },
+    { level: 'WARN', message: 'Slow query detected: SELECT * FROM orders (234ms)' },
+    { level: 'INFO', message: 'GET /api/v1/orders 200 — 234ms' },
+    { level: 'DEBUG', message: 'Connection pool: 8/20 active' },
+    { level: 'INFO', message: 'Background job completed: metrics flush' },
+  ];
+  await prisma.logEntry.createMany({
+    data: apiProdLogs.map((log, i) => ({
+      deploymentId: apiProdDeploy.id,
+      ts: new Date(now - (apiProdLogs.length - i) * logStepMs),
+      level: log.level,
+      message: log.message,
+      meta: { rolloutId: apiProdRollout.id },
+    })),
+  });
+
+  // WORKER DEV — OOMKilled crash sequence
+  const workerLogs = [
+    { level: 'INFO', message: 'Starting application...' },
+    { level: 'INFO', message: 'Connected to database' },
+    { level: 'INFO', message: 'Loading ML model from /models/classifier-v2.onnx...' },
+    { level: 'INFO', message: 'Model loaded in 4.2s, warming up...' },
+    { level: 'INFO', message: 'Warmup complete, accepting jobs' },
+    { level: 'INFO', message: 'Processing batch: 50 images queued' },
+    { level: 'WARN', message: 'Memory usage at 72% of limit (1474Mi / 2048Mi)' },
+    { level: 'INFO', message: 'Processed 20/50 images' },
+    { level: 'WARN', message: 'Memory usage at 85% of limit (1740Mi / 2048Mi)' },
+    { level: 'WARN', message: 'Memory usage at 92% of limit (1884Mi / 2048Mi)' },
+    { level: 'ERROR', message: 'OOMKilled: container exceeded memory limit (2048Mi)' },
+    { level: 'INFO', message: 'Container restarting after OOMKill...' },
+    { level: 'INFO', message: 'Starting application...' },
+    { level: 'WARN', message: 'Memory usage climbing rapidly — 78% within 30s of restart' },
+    { level: 'ERROR', message: 'OOMKilled: container exceeded memory limit (2048Mi)' },
+    { level: 'ERROR', message: 'CrashLoopBackOff: container repeatedly crashing' },
+  ];
+  await prisma.logEntry.createMany({
+    data: workerLogs.map((log, i) => ({
+      deploymentId: workerDevDeploy.id,
+      ts: new Date(now - (workerLogs.length - i) * logStepMs),
+      level: log.level,
+      message: log.message,
+      meta: { rolloutId: workerRollout.id },
+    })),
+  });
+
+  // WEB DEV — healthy but shorter
+  const webDevLogs = [
+    { level: 'INFO', message: 'Starting Next.js application...' },
+    { level: 'INFO', message: 'Next.js 15.0 ready on port 3000' },
+    { level: 'INFO', message: 'GET / 200 — 45ms' },
+    { level: 'INFO', message: 'GET /api/health 200 — 2ms' },
+    { level: 'INFO', message: 'GET /products 200 — 120ms' },
+    { level: 'DEBUG', message: 'ISR revalidation triggered for /products' },
+    { level: 'INFO', message: 'GET /api/cart 200 — 18ms' },
+  ];
+  await prisma.logEntry.createMany({
+    data: webDevLogs.map((log, i) => ({
+      deploymentId: webDevDeploy.id,
+      ts: new Date(now - (webDevLogs.length - i) * logStepMs),
+      level: log.level,
+      message: log.message,
+      meta: { rolloutId: webDevRollout.id },
+    })),
+  });
+
+  // ── Incidents ───────────────────────────────────────────────
   console.log('[seed] Creating incidents...');
   await prisma.incident.create({
     data: {
       workspaceId: workspace.id, deploymentId: workerDevDeploy.id,
-      title: 'ML Worker OOM on image batch processing',
-      severity: Severity.HIGH, status: IncidentStatus.OPEN,
+      title: 'Container OOMKill detected',
+      severity: Severity.CRITICAL, status: IncidentStatus.OPEN,
       summary: 'The acme-worker container was OOMKilled while processing a batch of 50 high-res images. Memory limit of 2Gi is insufficient for the current model.',
       startedAt: new Date(Date.now() - 3600000),
     },
@@ -368,8 +576,10 @@ async function main() {
   console.log(`  Artifacts:    ${artifactCount} generated from Handlebars templates`);
   console.log(`  Deployments:  6 across environments`);
   console.log(`  Rollouts:     4 (2 succeeded, 1 failed, 1 in-progress)`);
-  console.log(`  Security:     2 reports with findings`);
-  console.log(`  Metrics:      24 hourly samples for API prod`);
+  console.log(`  Security:     4 reports with findings (all rollouts)`);
+  console.log(`  Cost:         4 estimates (all rollouts)`);
+  console.log(`  Metrics:      78 hourly samples across 4 deployments`);
+  console.log(`  Logs:         38 entries across 3 deployments`);
   console.log(`  Incidents:    1 open (worker OOM)`);
   console.log(`  Audit:        11 events`);
 }

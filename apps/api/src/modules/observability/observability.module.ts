@@ -1,8 +1,18 @@
 import { Module } from '@nestjs/common';
+import { MetricsProviderModule } from '../../providers/metrics/metrics.module';
+import { LogsProviderModule } from '../../providers/logs/logs.module';
+import { ObservabilityController } from './observability.controller';
+import { ObservabilityService } from './observability.service';
 
 /**
- * Metrics + incidents land Day 5; logs land Day 9. Wraps the configured
- * [[metrics-provider]] and [[logs-provider]] adapters.
+ * Day-5 deliverable. Metrics + incidents + logs. Wraps the configured
+ * [[metrics-provider]] and [[logs-provider]] adapters, persists
+ * MetricSample, LogEntry, and Incident rows tied to rollouts.
  */
-@Module({})
+@Module({
+  imports: [MetricsProviderModule, LogsProviderModule],
+  controllers: [ObservabilityController],
+  providers: [ObservabilityService],
+  exports: [ObservabilityService],
+})
 export class ObservabilityModule {}
